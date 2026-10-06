@@ -10,33 +10,33 @@
     "format": "biome format --write"
   },
   "dependencies": {
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
-    "@radix-ui/react-label": "^2.1.8",
-    "@radix-ui/react-slot": "^1.2.4",
-    "@tanstack/react-query": "^5.90.7",
+    "@radix-ui/react-dropdown-menu": "^2.1.25",
+    "@radix-ui/react-label": "^2.1.16",
+    "@radix-ui/react-slot": "^1.4.0",
+    "@tanstack/react-query": "^5.104.1",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "jssip": "^3.10.1",
-    "lucide-react": "^0.552.0",
-    "mongoose": "^8.19.3",
-    "next": "16.0.1",
-    "next-auth": "^4.24.13",
+    "jssip": "^3.13.8",
+    "lucide-react": "^1.52.0",
+    "mongoose": "^9.11.0",
+    "next": "16.4.0",
+    "next-auth": "^4.24.15",
     "next-themes": "^0.4.6",
-    "react": "19.2.0",
-    "react-dom": "19.2.0",
-    "tailwind-merge": "^3.3.1"
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.2.0",
+    "@biomejs/biome": "2.5.15",
     "@tailwindcss/postcss": "^4",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jssip": "^3.5.3",
-    "@types/node": "^20",
+    "@types/bcryptjs": "^3.0.0",
+    "@types/jssip": "^3.5.4",
+    "@types/node": "^26",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^7"
   }
 }
