@@ -1,0 +1,17 @@
+name: react-dialer
+services:
+  asterisk:
+    image: asterisk:latest
+    ports: ["5060:5060/udp", "5066:5066"]
+    volumes: ["./config/asterisk:/etc/asterisk"]
+  freeswitch:
+    image: freeswitch/freeswitch:latest
+    ports: ["5060:5060/udp"]
+    volumes: ["./config/freeswitch:/etc/freeswitch"]
+  kamailio:
+    image: kamailio/kamailio:latest
+    ports: ["5060:5060/udp"]
+  web:
+    build: .
+    ports: ["3000:3000"]
+    depends_on: [asterisk, freeswitch, kamailio]

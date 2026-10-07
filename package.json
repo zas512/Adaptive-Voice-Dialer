@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "seed": "tsx --env-file=.env scripts/seed.ts",
     "lint": "biome check",
     "format": "biome format --write"
   },
@@ -37,6 +38,7 @@
     "@types/react-dom": "^19",
     "babel-plugin-react-compiler": "1.0.0",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^7"
   }
 }
