@@ -71,20 +71,15 @@ const UserSchema = new Schema<IUser>(
 );
 
 // Hash password before saving
-UserSchema.pre("save", async function (next) {
+(UserSchema as any).pre("save", function (this: any, next: (err?: Error) => void) {
   // Only hash the password if it has been modified (or is new)
   if (!this.isModified("password")) {
     return next();
   }
 
-  try {
-    // Hash password with cost of 12
-    const hashedPassword = await bcrypt.hash(this.password, 12);
-    this.password = hashedPassword;
-    next();
-  } catch (error) {
-    next(error as Error);
-  }
+  // Hash password with cost of 12 and then call the hook middleware
+  this.password = bcrypt.hashSync(this.password, 12);
+  next();
 });
 
 // Prevent re-compilation during development
