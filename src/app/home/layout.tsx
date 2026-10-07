@@ -6,7 +6,6 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { signOut } from "next-auth/react";
-import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 
 interface HomeLayoutProps {
@@ -34,18 +33,18 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     ];
 
   return (
-    <div className="min-h-screen bg-transparent text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       <div className="flex min-h-screen gap-6 px-4 py-6 md:px-6">
         <Sidebar />
         <div className="flex flex-1 flex-col gap-6">
-          <header className="glass-depth sticky top-6 z-30 flex items-center justify-between gap-3 px-6 py-4">
+          <header className="sticky top-6 z-30 flex items-center justify-between gap-3 border border-border bg-card/95 px-6 py-4 backdrop-blur">
             <div className="text-base font-semibold text-foreground sm:text-lg">
               {activeTitle}
             </div>
             <div className="flex items-center gap-3">
               <ThemeToggle />
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={() => signOut({ callbackUrl: "/" })}
                 className="flex items-center gap-2"
               >
@@ -55,10 +54,7 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
             </div>
           </header>
           <main
-            className={cn(
-              "flex-1 overflow-y-auto bg-muted/10 p-6 lg:p-8",
-              className,
-            )}
+            className={`flex-1 overflow-y-auto px-6 lg:px-8 ${className ?? ""}`}
           >
             <div className="mx-auto w-full max-w-6xl space-y-6">{children}</div>
           </main>
@@ -67,4 +63,3 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     </div>
   );
 }
-
