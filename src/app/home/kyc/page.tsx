@@ -34,8 +34,8 @@ const clients = [
 ];
 
 const statusStyles: Record<string, string> = {
-  Verified: "bg-emerald-500/20 text-emerald-500",
-  "Pending Review": "bg-amber-500/20 text-amber-500",
+  Verified: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  "Pending Review": "bg-amber-500/10 text-amber-700 dark:text-amber-400",
   "Requires Action": "bg-destructive/10 text-destructive",
 };
 
@@ -43,9 +43,7 @@ export default function KycPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          KYC Management
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">KYC Management</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Keep your clients and customer records compliant and up to date.
         </p>
@@ -107,4 +105,3 @@ export default function KycPage() {
     </div>
   );
 }
-

@@ -51,18 +51,16 @@ const callLogs = [
 ];
 
 const statusStyles: Record<string, string> = {
-  Completed: "bg-emerald-500/20 text-emerald-500",
+  Completed: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
   Missed: "bg-destructive/10 text-destructive",
-  Voicemail: "bg-blue-500/20 text-blue-500",
+  Voicemail: "bg-blue-500/10 text-blue-700 dark:text-blue-400",
 };
 
 export default function CallLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Call Logs
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">Call Logs</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Review recent inbound and outbound activity across your dialer.
         </p>
@@ -72,7 +70,7 @@ export default function CallLogsPage() {
         <CardHeader>
           <CardTitle>Recent Calls</CardTitle>
           <CardDescription>
-            Monitor call performance and quickly follow up with your contacts.
+            Monitor call performance and follow up with contacts.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,4 +115,3 @@ export default function CallLogsPage() {
     </div>
   );
 }
-

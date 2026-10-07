@@ -22,9 +22,7 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Settings
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Manage your account details, security, and caller preferences.
         </p>
@@ -84,11 +82,11 @@ export default function SettingsPage() {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
             <div>
-              <h4 className="text-sm font-medium text-foreground">
+              <h4 className="text-sm font-semibold text-foreground">
                 Two-factor authentication
               </h4>
               <p className="text-sm text-muted-foreground">
-                Add an extra layer of security to your account when signing in.
+                Add an extra layer of security when signing in.
               </p>
             </div>
             <Button
@@ -106,4 +104,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

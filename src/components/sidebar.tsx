@@ -53,9 +53,9 @@ export function Sidebar() {
 
   return (
     <aside className="hidden w-60 shrink-0 lg:flex xl:w-72">
-      <div className="glass-depth flex h-full w-full flex-col gap-6 px-5 py-6">
+      <div className="flex h-full w-full flex-col gap-6 px-5 py-6">
         <Link href="/home" className="flex items-center gap-2 px-2">
-          <PhoneCall className="h-5 w-5 text-primary" />
+          <PhoneCall className="h-5 w-5 text-foreground" />
           <span className="text-lg font-semibold text-foreground">
             React Dialer
           </span>
@@ -87,7 +87,7 @@ export function Sidebar() {
           })}
         </nav>
 
-        <div className="rounded-md border border-border bg-background/60 p-4 text-xs text-muted-foreground">
+        <div className="rounded-md border border-border bg-background/70 p-4 text-xs text-muted-foreground">
           Signed in as
           <div className="mt-1 text-sm font-medium text-foreground">
             {user?.email ?? "Guest"}
@@ -97,4 +97,3 @@ export function Sidebar() {
     </aside>
   );
 }
-
