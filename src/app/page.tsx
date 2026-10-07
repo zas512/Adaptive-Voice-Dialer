@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Phone, ShieldCheck, Zap, Users, CheckCircle, ArrowRight } from "lucide-react";
@@ -59,7 +60,7 @@ export default function LandingPage() {
       {/* FEATURES — Navy cards with gold borders + image banner */}
       <section id="product" className="max-w-6xl mx-auto px-6 py-24">
         <div className="relative mb-16 rounded-3xl overflow-hidden shadow-2xl shadow-amber-900/20">
-          <img src="/images/hero-voip.jpg" alt="Call center workspace" className="w-full h-[320px] md:h-[400px] object-cover" />
+          <Image src="/images/hero-voip.jpg" alt="Call center workspace" width={1200} height={400} className="w-full h-[320px] md:h-[400px] object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a1525]/80 via-transparent to-[#0a1525]/80" />
           <div className="absolute inset-0 flex items-center justify-center px-8 text-center">
             <div className="max-w-2xl space-y-3">
