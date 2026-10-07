@@ -1,11 +1,68 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Phone, ShieldCheck, Zap, Users, CheckCircle2, ChevronDown } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LandingPage() {
+  const meshRef = useRef<HTMLCanvasElement | null>(null);
+  const [sipState, setSipState] = useState("Disconnected");
+
+  // Typing subtitle cycle
+  useEffect(() => {
+    const phrases = ["Real SIP calls", "Asterisk-ready", "Embed anywhere"];
+    let i=0, char=0, dir=1, typing=true;
+    const el = document.getElementById("type-sub");
+    if(!el) return;
+    const interval = setInterval(() => {
+      if(typing){ el.textContent = phrases[i].slice(0,char+1); char++; if(char>=phrases[i].length){ typing=false; } }
+      else { char--; if(char<=0){ typing=true; i=(i+1)%phrases.length; } else { el.textContent = phrases[i].slice(0,char); } }
+    }, 80);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Live SIP state demo
+  useEffect(() => {
+    const states = ["Disconnected","Connecting","Registered"];
+    let i=0;
+    const iv = setInterval(() => { i=(i+1)%states.length; setSipState(states[i]); }, 3500);
+    return () => clearInterval(iv);
+  }, []);
+
+  useEffect(() => {
+    const c = meshRef.current;
+    if (!c) return;
+    const ctx = c.getContext("2d");
+    if (!ctx) return;
+    let w = c.width = window.innerWidth;
+    let h = c.height = window.innerHeight;
+    const pts: {x:number,y:number,vx:number,vy:number}[] = [];
+    for (let i=0;i<30;i++) pts.push({x:Math.random()*w, y:Math.random()*h, vx:(Math.random()-0.5)*0.2, vy:(Math.random()-0.5)*0.2});
+    let anim = 0;
+    const id = setInterval(() => {
+      anim++;
+      ctx.clearRect(0,0,w,h);
+      ctx.fillStyle = "rgba(255,255,255,0.15)";
+      pts.forEach(p=>{
+        p.x += p.vx; p.y += p.vy;
+        if(p.x<0||p.x>w)p.vx*=-1; if(p.y<0||p.y>h)p.vy*=-1;
+        ctx.beginPath(); ctx.arc(p.x,p.y,1.2,0,Math.PI*2); ctx.fill();
+      });
+      for(let i=0;i<pts.length;i++) for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+        if(d<120){ ctx.strokeStyle=`rgba(255,255,255,${0.08*(1-d/120)})`; ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y); ctx.stroke(); }
+      }
+    }, 50);
+    return () => clearInterval(id);
+  }, []);
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <style>{`
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .anim-fade { animation: fadeUp 0.7s ease-out both; }
+      `}</style>
       {/* Navigation */}
       <nav className="sticky top-0 z-50 bg-background/90 backdrop-blur border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -20,17 +77,22 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-slate-50 to-background dark:from-slate-950 dark:to-background">
-        <div className="max-w-5xl mx-auto px-6 py-28 text-center space-y-8">
+      <section className="relative overflow-hidden bg-gradient-to-b from-[#0f172a] to-[#1a2332] dark:from-[#0b1120] dark:to-[#121a28] text-white">
+        {/* Subtle particle mesh */}
+        <canvas id="mesh" className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.12]" />
+        <div className="relative max-w-5xl mx-auto px-6 py-28 text-center space-y-8 anim-fade">
+          {/* Live SIP status pill */}
+          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-900/10 px-4 py-1.5 text-xs font-medium text-amber-300 shadow-[0_0_15px_rgba(184,122,46,0.15)]">
+            <span className={`w-2 h-2 rounded-full ${sipState==="Registered"?"bg-emerald-400":"bg-amber-400"} animate-pulse`} />
+            <span>SIP {sipState}</span>
+          </div>
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-muted-foreground shadow-sm">
             <Zap className="w-3.5 h-3.5" /> Browser-based VoIP — real calls, real PBX
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight text-foreground leading-[1.1]">
             Professional Browser Dialer
           </h1>
-          <p className="text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
-            Make and receive real calls over WebRTC. Built for sales, support, and call centers that need reliable SIP connectivity.
-          </p>
+          <p className="text-xl md:text-2xl text-slate-300 max-w-2xl mx-auto leading-relaxed h-8" id="type-sub">Make and receive real calls over WebRTC. Built for sales, support, and call centers.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <Link href="/login"><Button size="lg" className="px-8 py-6 text-lg">Get Started</Button></Link>
             <a href="#product" className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-card px-8 py-3 text-sm font-medium hover:bg-accent transition-colors">Explore Product</a>
