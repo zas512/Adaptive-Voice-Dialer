@@ -12,8 +12,14 @@ export function useProtectedRoute() {
   const router = useRouter();
 
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login");
+    if (!isLoading && !isAuthenticated && typeof window !== 'undefined') {
+      // Avoid redirect loops when session is still initializing
+      const lastRedirect = sessionStorage.getItem('last_redirect');
+      const now = Date.now();
+      if (!lastRedirect || now - parseInt(lastRedirect) > 3000) {
+        sessionStorage.setItem('last_redirect', String(now));
+        router.push("/login");
+      }
     }
   }, [isLoading, isAuthenticated, router]);
 
