@@ -52,7 +52,7 @@ export default function LandingPage() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-2">
             <Link href="/login"><Button size="lg" className="px-8 py-6 text-lg bg-amber-400 hover:bg-amber-300 text-[#0a1525] font-bold shadow-[0_0_30px_rgba(251,191,36,0.25)] transition-all hover:shadow-[0_0_40px_rgba(251,191,36,0.35)]">Get Started <ArrowRight className="w-5 h-5 ml-1" /></Button></Link>
-            <a href="#product" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-[#cbd5e1] hover:bg-white/10 transition-colors">Explore Product</a>
+            <Link href="#product" className="inline-flex items-center justify-center gap-2 rounded-full border border-white/10 bg-white/5 px-8 py-3 text-sm font-medium text-[#cbd5e1] hover:bg-white/10 transition-colors">Explore Product</Link>
           </div>
         </div>
       </section>
@@ -60,7 +60,7 @@ export default function LandingPage() {
       {/* FEATURES — Navy cards with gold borders + image banner */}
       <section id="product" className="max-w-6xl mx-auto px-6 py-24">
         <div className="relative mb-16 rounded-3xl overflow-hidden shadow-2xl shadow-amber-900/20">
-          <Image src="/images/hero-voip.jpg" alt="Call center workspace" width={1200} height={400} className="w-full h-[320px] md:h-[400px] object-cover" />
+              <Image priority src="/images/hero-voip.jpg" alt="Call center workspace" width={1200} height={400} className="w-full h-[320px] md:h-[400px] object-cover" />
           <div className="absolute inset-0 bg-gradient-to-r from-[#0a1525]/80 via-transparent to-[#0a1525]/80" />
           <div className="absolute inset-0 flex items-center justify-center px-8 text-center">
             <div className="max-w-2xl space-y-3">
