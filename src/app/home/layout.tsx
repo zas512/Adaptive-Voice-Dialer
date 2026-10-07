@@ -33,11 +33,11 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-[#0a1525] text-[#f0f4f8]">
       <div className="flex min-h-screen gap-6 px-4 py-6 md:px-6">
         <Sidebar />
         <div className="flex flex-1 flex-col gap-6">
-          <header className="sticky top-6 z-30 flex items-center justify-between gap-3 border border-border bg-card/95 px-6 py-4 backdrop-blur">
+          <header className="sticky top-6 z-30 flex items-center justify-between gap-3 border border-amber-400/10 bg-[#0d1b30]/95 px-6 py-4 backdrop-blur shadow-lg shadow-black/20 rounded-xl">
             <div className="text-base font-semibold text-foreground sm:text-lg">
               {activeTitle}
             </div>
