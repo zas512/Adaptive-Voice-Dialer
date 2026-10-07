@@ -28,11 +28,14 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section className="relative overflow-hidden bg-gradient-to-b from-[#071329] via-[#0a1525] to-[#0d1b30] text-white">
+      <section className="relative overflow-hidden bg-[#0a1525] text-white">
+        {/* Animated background — slowly moving radial glow */}
+        <div className="absolute inset-0 animate-[pulse_8s_ease-in-out_infinite] bg-[radial-gradient(circle_at_30%_40%,rgba(251,191,36,0.08),transparent_60%),radial-gradient(circle_at_70%_60%,rgba(251,191,36,0.06),transparent_60%)]" />
         {/* Animated decorative shapes */}
-        <div className="absolute top-10 left-10 w-3 h-3 rounded-full border border-amber-400/20 animate-pulse" />
+        {/* Animated decorative shapes — VISIBLE */}
+        <div className="absolute top-10 left-10 w-3 h-3 rounded-full bg-amber-400 animate-pulse shadow-[0_0_15px_rgba(251,191,36,0.6)]" />
         {/* Design elements: floating shapes + lines */}
-        <svg className="absolute top-16 left-8 w-56 h-56 text-amber-400/10" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke="currentColor" strokeWidth="1" strokeDasharray="6 6" /><circle cx="100" cy="100" r="50" fill="none" stroke="currentColor" strokeWidth="0.5" /></svg>
+        <svg className="absolute top-16 left-8 w-56 h-56 text-amber-400/60" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke="currentColor" strokeWidth="2" /><circle cx="100" cy="100" r="50" fill="none" stroke="currentColor" strokeWidth="1" /><circle cx="100" cy="100" r="20" fill="rgba(251,191,36,0.15)" stroke="currentColor" strokeWidth="1" /></svg>
         <svg className="absolute bottom-20 right-10 w-40 h-40 text-amber-300/10 rotate-12" viewBox="0 0 200 200"><polygon points="100,20 180,180 20,180" fill="none" stroke="currentColor" strokeWidth="1" /><polygon points="100,70 150,160 50,160" fill="none" stroke="currentColor" strokeWidth="0.5" /></svg>
         <div className="absolute top-32 right-16 w-2 h-2 rounded-full bg-amber-400/30" />
         <div className="absolute bottom-32 left-24 w-40 h-[1px] bg-gradient-to-r from-transparent via-amber-400/20 to-transparent rotate-12" />
