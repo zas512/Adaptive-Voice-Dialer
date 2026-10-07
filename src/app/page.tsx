@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Phone, ShieldCheck, Zap, Users, CheckCircle, ArrowRight } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
