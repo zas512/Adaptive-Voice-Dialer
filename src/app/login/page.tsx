@@ -1,6 +1,6 @@
 "use client";
 
-import { Phone } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, PhoneCall } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -73,27 +73,70 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background dark:bg-background">
-      {/* Navigation */}
-      <nav className="relative z-10 px-6 py-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-end">
-          <ThemeToggle />
-        </div>
-      </nav>
-      <div className="flex items-center justify-center p-6 min-h-[calc(100vh-100px)]">
-        <Card className="glass w-full max-w-md">
-          <CardHeader className="space-y-1 text-center">
-            <div className="flex items-center justify-center gap-2 mb-4">
-              <Phone className="w-8 h-8 text-foreground" />
-              <CardTitle className="text-2xl font-bold text-foreground">
-                Welcome Back
+    <div className="app-canvas min-h-svh text-foreground">
+      <header className="mx-auto flex max-w-7xl items-center justify-between px-5 py-5 sm:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+            <PhoneCall className="size-5" />
+          </span>
+          <span className="text-base font-semibold">React Dialer</span>
+        </Link>
+        <ThemeToggle />
+      </header>
+      <main className="mx-auto grid min-h-[calc(100svh-5rem)] max-w-7xl items-center gap-10 px-5 pb-10 sm:px-8 lg:grid-cols-2 lg:gap-20">
+        <section className="hidden max-w-xl lg:block">
+          <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1.5 text-xs font-medium text-secondary-foreground">
+            <span className="size-2 rounded-full bg-primary" />
+            Open SIP · Browser-based
+          </div>
+          <h1 className="mt-7 font-serif text-5xl font-semibold leading-[1.08] tracking-tight">
+            Good to have
+            <br />
+            <span className="text-primary">you on the line.</span>
+          </h1>
+          <p className="mt-5 max-w-lg text-base leading-7 text-muted-foreground">
+            Sign in to your administrator-provisioned account and connect to
+            your own SIP environment.
+          </p>
+          <ul className="mt-9 space-y-4">
+            {[
+              "Your extension, configured by your administrator",
+              "Calls placed directly from your browser",
+              "A workspace that fits alongside your CRM",
+            ].map((item) => (
+              <li
+                key={item}
+                className="flex items-center gap-3 text-sm text-secondary-foreground"
+              >
+                <span className="flex size-6 items-center justify-center rounded-full bg-success/10 text-success">
+                  <Check className="size-3.5" />
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mx-auto w-full max-w-md">
+          <div className="mb-6 lg:hidden">
+            <p className="eyebrow">Open SIP workspace</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              Sign in
+            </h1>
+          </div>
+          <Card className="border-border/80 shadow-[0_20px_60px_-36px_hsl(var(--foreground)/0.3)]">
+            <CardHeader className="space-y-2 pb-5">
+              <div className="mb-2 flex size-11 items-center justify-center rounded-xl bg-secondary text-primary">
+                <PhoneCall className="size-5" />
+              </div>
+              <CardTitle className="text-2xl font-semibold tracking-tight">
+                Welcome back
               </CardTitle>
-            </div>
-            <CardDescription>
-              Sign in to your React Dialer account
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
+              <CardDescription>
+                Sign in with the account provisioned by your administrator.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
@@ -124,24 +167,27 @@ export default function LoginPage() {
                   disabled={loading}
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? "Signing in..." : "Sign In"}
+              <Button type="submit" className="mt-2 h-11 w-full" disabled={loading}>
+                {loading ? "Signing in..." : "Sign in"}
+                {!loading && <ArrowRight className="size-4" />}
               </Button>
             </form>
-            <div className="text-center text-sm text-muted-foreground">
-              Need an account? Contact your administrator.
+            <div className="rounded-xl bg-secondary/70 px-4 py-3 text-sm leading-6 text-secondary-foreground">
+              Need access? Contact your administrator to provision an account.
             </div>
-            <div className="text-center">
+            <div className="border-t border-border pt-4">
               <Link
                 href="/"
-                className="text-sm text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
-                ← Back to home
+                <ArrowLeft className="size-4" />
+                Back to home
               </Link>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </section>
+      </main>
     </div>
   );
 }

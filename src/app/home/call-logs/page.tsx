@@ -30,10 +30,10 @@ interface CallLog {
 }
 
 const statusStyles: Record<CallLog["callState"], string> = {
-  completed: "bg-emerald-500/20 text-emerald-500",
-  missed: "bg-destructive/10 text-destructive",
-  cancelled: "bg-amber-500/20 text-amber-500",
-  failed: "bg-blue-500/20 text-blue-500",
+  completed: "border border-success/25 bg-success/10 text-success",
+  missed: "border border-warning/25 bg-warning/10 text-warning",
+  cancelled: "border border-border bg-muted text-muted-foreground",
+  failed: "border border-destructive/25 bg-destructive/10 text-destructive",
 };
 
 function formatDuration(totalSeconds: number) {
@@ -88,20 +88,11 @@ export default function CallLogsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Call Logs
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review recent inbound and outbound activity across your dialer.
-        </p>
-      </div>
-
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Recent Calls</CardTitle>
           <CardDescription>
-            Monitor call performance and quickly follow up with your contacts.
+            Review recent inbound and outbound activity across your dialer.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -10,7 +10,7 @@ const Table = React.forwardRef<
   <section
     aria-label="Scrollable data table"
     tabIndex={0}
-    className="glass-depth relative w-full max-w-full overflow-x-auto overscroll-x-contain border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="relative w-full max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
     <table
       ref={ref}
@@ -78,7 +78,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      "h-11 bg-muted/70 px-4 text-left align-middle text-xs font-semibold tracking-wide text-muted-foreground [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}

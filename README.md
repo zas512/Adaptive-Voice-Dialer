@@ -22,7 +22,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Demo users
 
-Set `MONGODB_URI` and `AUTH_SECRET` in `.env.local`, then run:
+Set `MONGODB_URI` in `.env.local`, then seed the demo accounts:
 
 ```bash
 npm run seed
@@ -34,9 +34,13 @@ Generate an `AUTH_SECRET` with:
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 ```
 
+Set the generated value as `AUTH_SECRET` in `.env.local` for sign-in.
+
 Sign-in uses `POST /api/auth/login` to issue a bearer token. The browser keeps
 the session in local storage and sends the token with API requests. Each device
 can sign in independently; signing out clears only that browser's session.
+Protected endpoints expect `Authorization: Bearer <token>`. Tokens expire
+after 30 days.
 
 This creates or updates these three accounts:
 

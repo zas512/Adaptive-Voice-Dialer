@@ -108,16 +108,7 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-          Settings
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage your account details, security, and caller preferences.
-        </p>
-      </div>
-
-      <Card>
+      <Card className="overflow-hidden">
         <CardHeader>
           <CardTitle>Profile</CardTitle>
           <CardDescription>

@@ -314,24 +314,17 @@ export default function AdminUsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-foreground">
-            Team Management
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Add, edit, and manage user access across your organization.
-          </p>
-        </div>
-        <Button onClick={openCreateModal}>Add user</Button>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Directory</CardTitle>
-          <CardDescription>
-            Manage access levels for administrators, agents, and users.
-          </CardDescription>
+      <Card className="overflow-hidden">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1.5">
+            <CardTitle>Team directory</CardTitle>
+            <CardDescription>
+              Manage accounts, access levels, and SIP provisioning.
+            </CardDescription>
+          </div>
+          <Button onClick={openCreateModal} className="shrink-0">
+            Add user
+          </Button>
         </CardHeader>
         <CardContent>
           {directoryContent}

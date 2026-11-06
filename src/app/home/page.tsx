@@ -312,7 +312,7 @@ export default function HomePage() {
   // --- Render ---
 
   return (
-    <div className="bg-transparent p-3 text-foreground sm:p-6 lg:p-8">
+    <div className="space-y-6">
       {/* Hidden audio element for remote stream - tracks for captions compliance */}
       <audio
         ref={remoteAudioRef}
@@ -327,179 +327,290 @@ export default function HomePage() {
         className="sr-only"
       />
 
-      {/* Status strip */}
-      <Card className="glass-depth">
-        <CardHeader className="flex flex-row items-center justify-between gap-2 p-4">
-          <CardTitle className="text-sm font-medium font-serif">Status</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div
-            className="grid grid-cols-2 gap-3 border-t border-border p-4 md:grid-cols-4"
-            role="status"
-            aria-label="Dialer status"
-          >
-            <StatusRow
-              icon={
-                isRegistered ? (
-                  <Volume2 className="h-3 w-3 text-success" />
-                ) : (
-                  <AlertCircle className="h-3 w-3 text-warning" />
-                )
-              }
-              label={`SIP ${isRegistered ? "registered" : registrationFailed ? "registration failed" : websocketConnected ? "registering" : "disconnected"}`}
-            />
-            <StatusRow
-              icon={
-                websocketConnected ? (
-                  <Volume2 className="h-3 w-3 text-success" />
-                ) : (
-                  <VolumeX className="h-3 w-3 text-muted-foreground" />
-                )
-              }
-              label={`Transport ${websocketConnected ? "connected" : "disconnected"}`}
-            />
-            <StatusRow
-              icon={
-                isCallActive ? (
-                  <Phone className="h-3 w-3 text-success" />
-                ) : (
-                  <PhoneOff className="h-3 w-3 text-muted-foreground" />
-                )
-              }
-              label={statusLabel}
-            />
-            <StatusRow
-              icon={
-                isAudioOn ? (
-                  <Volume2 className="h-3 w-3 text-success" />
-                ) : (
-                  <VolumeX className="h-3 w-3 text-muted-foreground" />
-                )
-              }
-              label={
-                isCallActive
-                  ? `Speaker ${isAudioOn ? "on" : "off"}`
-                  : "Speaker ready"
-              }
-            />
-          </div>
-          {callStatus && (
-            <div
-              className="px-4 pb-4 text-sm text-muted-foreground"
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-            >
-              {callStatus}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-col gap-1">
+        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+          Make a call
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Calls run through your configured SIP extension.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Dialer */}
-        <Card className="glass-depth lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-lg font-semibold font-serif">Dialer</CardTitle>
-            <CardDescription>Place and receive calls over your SIP line.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Phone Number Display */}
-            <div className="rounded-xl border border-border bg-background/60 p-4 text-center">
+      <section
+        className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm sm:grid-cols-2 xl:grid-cols-4"
+        role="status"
+        aria-label="Dialer status"
+      >
+        <StatusRow
+          icon={
+            isRegistered ? (
+              <Volume2 className="size-4 text-success" />
+            ) : (
+              <AlertCircle className="size-4 text-warning" />
+            )
+          }
+          label={`SIP ${isRegistered ? "registered" : registrationFailed ? "registration failed" : websocketConnected ? "registering" : "disconnected"}`}
+        />
+        <StatusRow
+          icon={
+            websocketConnected ? (
+              <Volume2 className="size-4 text-success" />
+            ) : (
+              <VolumeX className="size-4 text-muted-foreground" />
+            )
+          }
+          label={`Transport ${websocketConnected ? "connected" : "disconnected"}`}
+        />
+        <StatusRow
+          icon={
+            isCallActive ? (
+              <Phone className="size-4 text-success" />
+            ) : (
+              <PhoneOff className="size-4 text-muted-foreground" />
+            )
+          }
+          label={statusLabel}
+        />
+        <StatusRow
+          icon={
+            isAudioOn ? (
+              <Volume2 className="size-4 text-success" />
+            ) : (
+              <VolumeX className="size-4 text-muted-foreground" />
+            )
+          }
+          label={
+            isCallActive
+              ? `Speaker ${isAudioOn ? "on" : "off"}`
+              : "Speaker ready"
+          }
+        />
+      </section>
+
+      {callStatus && (
+        <p
+          className="text-sm text-muted-foreground"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          {callStatus}
+        </p>
+      )}
+
+      <Card className="overflow-hidden">
+        <CardHeader className="border-b border-border/80 px-5 py-5 sm:px-7">
+          <CardTitle className="text-lg font-semibold tracking-tight">
+            Dialer
+          </CardTitle>
+          <CardDescription>
+            Enter a number or use the keypad to get started.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-8 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
+          <div className="space-y-5">
+            <div className="rounded-xl border border-border bg-background px-4 py-3">
+              <label
+                htmlFor="phone-number"
+                className="eyebrow block pb-2 text-left"
+              >
+                Phone number
+              </label>
               <Input
+                id="phone-number"
                 value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder="Enter number or dial"
-                className="text-3xl font-mono text-center text-foreground font-medium"
+                onChange={(event) => setPhoneNumber(event.target.value)}
+                placeholder="Enter number"
+                className="h-14 border-0 bg-transparent px-0 text-center font-mono text-3xl font-medium tabular-nums shadow-none focus-visible:ring-0 sm:text-4xl"
                 aria-label="Phone number"
               />
             </div>
 
-            {/* Status pill */}
-            <div className="text-center">
-              <div
-                className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-medium ${
-                  isRegistered
-                    ? "border-success/30 bg-success/10 text-success"
-                    : registrationFailed
-                      ? "border-destructive/30 bg-destructive/10 text-destructive"
-                      : websocketConnected
-                        ? "border-warning/30 bg-warning/10 text-warning"
-                        : "border-border bg-muted text-muted-foreground"
-                }`}
-              >
-                {isRegistered
-                  ? "Registered and ready"
-                  : registrationFailed
-                    ? "SIP registration failed"
-                    : websocketConnected
-                      ? "Connected; registering SIP account…"
-                      : "SIP transport disconnected"}
-              </div>
-            </div>
-
-            {/* Keypad */}
-            <div className="grid grid-cols-3 gap-3">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9, "*", 0, "#"].map((num) => (
-                <Button key={num} onClick={() => handleNumberClick(String(num))} className="bg-secondary border-border hover:bg-secondary/80 text-foreground">
-                  {num}
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                ["1", ""],
+                ["2", "ABC"],
+                ["3", "DEF"],
+                ["4", "GHI"],
+                ["5", "JKL"],
+                ["6", "MNO"],
+                ["7", "PQRS"],
+                ["8", "TUV"],
+                ["9", "WXYZ"],
+                ["*", ""],
+                ["0", "+"],
+                ["#", ""],
+              ].map(([digit, letters]) => (
+                <Button
+                  key={digit}
+                  type="button"
+                  variant="outline"
+                  onClick={() => handleNumberClick(digit)}
+                  className="h-[4.15rem] flex-col gap-0 rounded-xl border-border bg-card text-lg font-semibold tabular-nums hover:border-primary/40 hover:bg-secondary"
+                >
+                  <span>{digit}</span>
+                  {letters && (
+                    <span className="text-[0.6rem] font-semibold tracking-[0.12em] text-muted-foreground">
+                      {letters}
+                    </span>
+                  )}
                 </Button>
               ))}
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <Button onClick={handleClear} className="flex-1 bg-secondary border-border hover:bg-secondary/80">
-                Clear
+            <div className="flex justify-between">
+              <Button type="button" variant="ghost" onClick={handleClear}>
+                Clear number
               </Button>
-              <Button onClick={handleBackspace} className="flex-1 bg-secondary border-border hover:bg-secondary/80">
-                ←
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleBackspace}
+                aria-label="Delete last digit"
+              >
+                Delete last digit
               </Button>
             </div>
+          </div>
 
-            {/* Call Button */}
-            <Button
-              onClick={handleCall}
-              className={`w-full h-14 text-lg ${isIncomingCall || isCallActive ? "bg-primary hover:bg-primary/90 text-primary-foreground" : ""}`}
-              disabled={!isIncomingCall && !isCallActive && !isRegistered}
-              aria-label={isIncomingCall ? "Answer call" : isCallActive ? "End call" : "Call"}
-            >
-              {isIncomingCall ? <><Phone className="w-5 h-5 mr-2" />Answer</> : isCallActive ? <><PhoneOff className="w-5 h-5 mr-2" />End Call</> : <><Phone className="w-5 h-5 mr-2" />Call</>}
-            </Button>
-            {isIncomingCall && (
-              <Button onClick={handleDecline} className="w-full bg-primary hover:bg-primary/90 text-primary-foreground" aria-label="Decline call">
-                Decline
-              </Button>
-            )}
-            {audioPlaybackBlocked && (
-              <Button onClick={handleEnableAudio} className="w-full bg-accent hover:bg-accent/80 text-accent-foreground">
-                Enable call audio
-              </Button>
-            )}
-            {isCallActive && (
-              <div className="grid grid-cols-2 gap-3">
-              <Button
-                onClick={handleToggleMute}
-                className="w-full bg-secondary border-border hover:bg-secondary/80"
-                aria-pressed={isMuted}
-                aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
-              >
-                {isMuted ? <><MicOff className="w-4 h-4 mr-2" />Unmute</> : <><Mic className="w-4 h-4 mr-2" />Mute</>}
-              </Button>
-              <Button
-                onClick={handleToggleAudio}
-                className={`w-full ${isAudioOn ? "bg-primary text-primary-foreground" : "bg-secondary border-border hover:bg-secondary/80"}`}
-                aria-pressed={isAudioOn}
-                aria-label={audioButtonLabel}
-                disabled={!remoteAudioRef.current?.srcObject}
-              >
-                {isAudioOn ? <><Volume2 className="w-4 h-4 mr-2" />Speaker on</> : <><VolumeX className="w-4 h-4 mr-2" />Speaker off</>}
-              </Button>
+          <div className="flex flex-col rounded-xl bg-foreground p-5 text-background sm:p-6">
+            <div className="eyebrow text-background/65">Your SIP line</div>
+            <div className="mt-2 text-lg font-semibold">
+              {user?.extensionId || "Extension not configured"}
+            </div>
+            <div className="mt-1 truncate text-sm text-background/70">
+              {user?.host || "Ask your administrator to configure your line"}
+            </div>
+
+            <div className="mt-6 flex items-start gap-3 border-t border-background/15 pt-5">
+              <span
+                className={`mt-1 size-2.5 shrink-0 rounded-full ${
+                  isRegistered
+                    ? "bg-success"
+                    : registrationFailed
+                      ? "bg-destructive"
+                      : websocketConnected
+                        ? "bg-warning"
+                        : "bg-background/45"
+                }`}
+              />
+              <div>
+                <p className="text-sm font-semibold">
+                  {isRegistered
+                    ? "Ready to call"
+                    : registrationFailed
+                      ? "Registration failed"
+                      : websocketConnected
+                        ? "Connecting your line"
+                        : "Waiting for connection"}
+                </p>
+                <p className="mt-1 text-sm leading-5 text-background/70">
+                  {isRegistered
+                    ? "Your SIP extension is registered."
+                    : registrationFailed
+                      ? "Check your extension details with your administrator."
+                      : "Calls become available when your extension is registered."}
+                </p>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+
+            <div className="mt-auto space-y-3 pt-8">
+              <Button
+                onClick={handleCall}
+                variant={isCallActive ? "destructive" : "default"}
+                className="h-12 w-full rounded-xl text-base"
+                disabled={!isIncomingCall && !isCallActive && !isRegistered}
+                aria-label={
+                  isIncomingCall
+                    ? "Answer call"
+                    : isCallActive
+                      ? "End call"
+                      : "Call"
+                }
+              >
+                {isIncomingCall ? (
+                  <>
+                    <Phone className="size-5" />
+                    Answer call
+                  </>
+                ) : isCallActive ? (
+                  <>
+                    <PhoneOff className="size-5" />
+                    End call
+                  </>
+                ) : (
+                  <>
+                    <Phone className="size-5" />
+                    Call
+                  </>
+                )}
+              </Button>
+              {isIncomingCall && (
+                <Button
+                  onClick={handleDecline}
+                  variant="outline"
+                  className="w-full border-background/30 bg-transparent text-background hover:bg-background/10"
+                  aria-label="Decline call"
+                >
+                  Decline
+                </Button>
+              )}
+              {audioPlaybackBlocked && (
+                <Button
+                  onClick={handleEnableAudio}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  Enable call audio
+                </Button>
+              )}
+              {isCallActive && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={handleToggleMute}
+                    variant="outline"
+                    className="border-background/30 bg-transparent text-background hover:bg-background/10"
+                    aria-pressed={isMuted}
+                    aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+                  >
+                    {isMuted ? (
+                      <>
+                        <MicOff className="size-4" />
+                        Unmute
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="size-4" />
+                        Mute
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleToggleAudio}
+                    variant="outline"
+                    className="border-background/30 bg-transparent text-background hover:bg-background/10"
+                    aria-pressed={isAudioOn}
+                    aria-label={audioButtonLabel}
+                    disabled={!remoteAudioRef.current?.srcObject}
+                  >
+                    {isAudioOn ? (
+                      <>
+                        <Volume2 className="size-4" />
+                        Speaker on
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="size-4" />
+                        Speaker off
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -667,9 +778,13 @@ import type { ReactNode } from "react";
 interface StatusRowProps { icon: ReactNode; label: string }
 function StatusRow({ icon, label }: StatusRowProps) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="text-muted-foreground">{icon}</div>
-      <span className="text-sm text-foreground font-medium">{label}</span>
+    <div className="flex items-center gap-3 bg-card px-4 py-3.5">
+      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
+        {icon}
+      </div>
+      <span className="min-w-0 text-sm font-medium capitalize text-foreground">
+        {label}
+      </span>
     </div>
   );
 }

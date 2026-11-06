@@ -26,6 +26,14 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     "/home/admin/users": "User Administration",
   };
 
+  const descriptionMap: Record<string, string> = {
+    "/home": "Your live connection and calling controls",
+    "/home/call-logs": "Recent inbound and outbound activity",
+    "/home/settings": "Your profile and account preferences",
+    "/home/kyc": "Client records and review status",
+    "/home/admin/users": "Accounts, roles, and SIP provisioning",
+  };
+
   const activeTitle =
     titleMap[pathname] ??
     titleMap[
@@ -35,15 +43,20 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     ];
 
   return (
-    <div className="bg-transparent text-foreground">
-      <div className="flex flex-col gap-3 p-3 sm:px-4 sm:py-4 lg:flex-row lg:gap-6 lg:px-6 lg:py-6">
+    <div className="app-canvas min-h-svh text-foreground">
+      <div className="mx-auto flex min-h-svh max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:gap-0 lg:px-0 lg:py-0">
         <Sidebar />
-        <div className="flex min-w-0 flex-1 flex-col gap-4">
-          <header className="glass-depth flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4">
-            <div className="min-w-0 text-base font-semibold text-foreground sm:text-lg">
-              {activeTitle}
+        <div className="flex min-w-0 flex-1 flex-col lg:px-8">
+          <header className="flex min-h-[76px] items-center justify-between gap-3 border-b border-border/80 py-3">
+            <div className="min-w-0">
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                {activeTitle}
+              </h1>
+              <p className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
+                {descriptionMap[pathname] ?? "Your dialer workspace"}
+              </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2">
               <ThemeToggle />
               <Button
                 variant="ghost"
@@ -51,15 +64,15 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
                   clearAuthSession();
                   router.replace("/");
                 }}
-                className="flex items-center gap-2"
+                className="flex h-10 items-center gap-2 px-3"
               >
                 <LogOut className="h-4 w-4" />
-                Logout
+                <span className="hidden sm:inline">Sign out</span>
               </Button>
             </div>
           </header>
-          <main className={cn("min-w-0 flex-1 p-3 sm:p-6 lg:p-8", className)}>
-            <div className="mx-auto w-full max-w-6xl space-y-6">{children}</div>
+          <main className={cn("min-w-0 flex-1 py-6 sm:py-8", className)}>
+            <div className="mx-auto w-full max-w-6xl space-y-7">{children}</div>
           </main>
         </div>
       </div>
