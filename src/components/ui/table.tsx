@@ -1,3 +1,4 @@
+// biome-ignore-all lint/a11y/noNoninteractiveTabindex: The scroll region must be keyboard-focusable.
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
@@ -6,13 +7,17 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="glass-depth relative w-full overflow-hidden border border-transparent shadow-sm">
+  <section
+    aria-label="Scrollable data table"
+    tabIndex={0}
+    className="glass-depth relative w-full max-w-full overflow-x-auto overscroll-x-contain border border-transparent shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  >
     <table
       ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
+      className={cn("w-full min-w-max caption-bottom text-sm", className)}
       {...props}
     />
-  </div>
+  </section>
 ))
 Table.displayName = "Table"
 
@@ -107,11 +112,11 @@ TableCaption.displayName = "TableCaption"
 
 export {
   Table,
-  TableHeader,
   TableBody,
+  TableCaption,
+  TableCell,
   TableFooter,
   TableHead,
+  TableHeader,
   TableRow,
-  TableCell,
-  TableCaption,
 }

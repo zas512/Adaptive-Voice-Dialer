@@ -1,7 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useProtectedRouteByRole } from "@/hooks/use-protected-route";
+import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -9,6 +9,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -17,10 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useApiMutation, useApiQuery } from "@/hooks/use-api";
+import { useProtectedRouteByRole } from "@/hooks/use-protected-route";
 
 type AdminUser = {
   id: string;
@@ -77,6 +77,8 @@ export default function AdminUsersPage() {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
   const [formData, setFormData] = useState<UserFormState>(emptyForm);
   const [formError, setFormError] = useState<string | null>(null);
+  const modalRef = useRef<HTMLDivElement>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
 
   const createUserMutation = useApiMutation<
     AdminUser,
@@ -115,7 +117,19 @@ export default function AdminUsersPage() {
     }
   }, [hasRole, roleLoading, router]);
 
+  useEffect(() => {
+    if (!isModalOpen) return;
+    modalRef.current?.querySelector<HTMLInputElement>("input")?.focus();
+    return () => returnFocusRef.current?.focus();
+  }, [isModalOpen]);
+
+  const rememberModalOpener = () => {
+    returnFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  };
+
   const openCreateModal = () => {
+    rememberModalOpener();
     setFormMode("create");
     setFormData(emptyForm);
     setFormError(null);
@@ -123,6 +137,7 @@ export default function AdminUsersPage() {
   };
 
   const openEditModal = (user: AdminUser) => {
+    rememberModalOpener();
     setFormMode("edit");
     setFormData({
       id: user.id,
@@ -145,6 +160,32 @@ export default function AdminUsersPage() {
     setIsModalOpen(false);
     setFormData(emptyForm);
     setFormError(null);
+  };
+
+  const handleDialogKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeModal();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = event.currentTarget.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    );
+    const first = focusable.item(0);
+    const last = focusable.item(focusable.length - 1);
+    if (!first || !last) {
+      event.preventDefault();
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   const handleFormChange = (field: keyof UserFormState, value: string) => {
@@ -190,7 +231,7 @@ export default function AdminUsersPage() {
         );
       } else {
         await updateUserMutation.mutateAsync({
-          id: formData.id!,
+          id: formData.id,
           ...(basePayload as Partial<UserFormState>),
         });
       }
@@ -298,10 +339,21 @@ export default function AdminUsersPage() {
       </Card>
 
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur">
-          <div className="w-full max-w-xl rounded-lg border border-border bg-card shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-background/80 px-3 py-4 backdrop-blur sm:items-center">
+          <div
+            ref={modalRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="user-dialog-title"
+            tabIndex={-1}
+            onKeyDown={handleDialogKeyDown}
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-xl overflow-y-auto rounded-lg border border-border bg-card shadow-xl"
+          >
             <div className="flex items-center justify-between border-b border-border px-6 py-4">
-              <h2 className="text-lg font-semibold text-foreground">
+              <h2
+                id="user-dialog-title"
+                className="text-lg font-semibold text-foreground"
+              >
                 {formMode === "create" ? "Create user" : "Edit user"}
               </h2>
               <Button variant="ghost" size="sm" onClick={closeModal}>
@@ -432,7 +484,10 @@ export default function AdminUsersPage() {
               </div>
 
               {formError && (
-                <div className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                <div
+                  className="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive"
+                  role="alert"
+                >
                   {formError}
                 </div>
               )}

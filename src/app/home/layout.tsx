@@ -1,13 +1,13 @@
 "use client";
 
-import { ReactNode } from "react";
+import { LogOut } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { signOut } from "next-auth/react";
+import type { ReactNode } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
-import { signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
 
 interface HomeLayoutProps {
   children: ReactNode;
@@ -34,12 +34,12 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     ];
 
   return (
-    <div className="min-h-screen bg-transparent text-foreground">
-      <div className="flex min-h-screen gap-6 px-4 py-6 md:px-6">
+    <div className="bg-transparent text-foreground">
+      <div className="flex flex-col gap-3 p-3 sm:px-4 sm:py-4 lg:flex-row lg:gap-6 lg:px-6 lg:py-6">
         <Sidebar />
-        <div className="flex flex-1 flex-col gap-6">
-          <header className="glass-depth sticky top-6 z-30 flex items-center justify-between gap-3 px-6 py-4">
-            <div className="text-base font-semibold text-foreground sm:text-lg">
+        <div className="flex min-w-0 flex-1 flex-col gap-4">
+          <header className="glass-depth flex items-center justify-between gap-3 px-3 py-3 sm:px-6 sm:py-4">
+            <div className="min-w-0 text-base font-semibold text-foreground sm:text-lg">
               {activeTitle}
             </div>
             <div className="flex items-center gap-3">
@@ -55,10 +55,7 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
             </div>
           </header>
           <main
-            className={cn(
-              "flex-1 overflow-y-auto bg-muted/10 p-6 lg:p-8",
-              className,
-            )}
+            className={cn("min-w-0 flex-1 p-3 sm:p-6 lg:p-8", className)}
           >
             <div className="mx-auto w-full max-w-6xl space-y-6">{children}</div>
           </main>
@@ -67,4 +64,3 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     </div>
   );
 }
-

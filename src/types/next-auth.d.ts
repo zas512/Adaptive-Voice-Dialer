@@ -12,6 +12,9 @@ declare module "next-auth" {
       extensionId?: string;
       host?: string;
       port?: number;
+      sipHost?: string;
+      sipPort?: number;
+      sipSecret?: string;
     };
   }
 
@@ -24,6 +27,9 @@ declare module "next-auth" {
     extensionId?: string;
     host?: string;
     port?: number;
+    sipHost?: string;
+    sipPort?: number;
+    sipSecret?: string;
   }
 }
 
@@ -35,6 +41,9 @@ declare module "next-auth/jwt" {
     extensionId?: string;
     host?: string;
     port?: number;
+    sipHost?: string;
+    sipPort?: number;
+    sipSecret?: string;
     profileLoaded?: boolean;
   }
 }

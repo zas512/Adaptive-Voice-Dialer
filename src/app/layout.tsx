@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
 import { Providers } from "@/components/providers";
+import { ThemeProvider } from "@/components/theme-provider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "React Dialer - Professional VoIP Dialer",
-  description: "Browser-based VoIP dialer powered by Asterisk and FreePBX",
+  title: "React Dialer | Open SIP workspace",
+  description:
+    "A browser-based dialer for administrator-provisioned SIP extensions, standalone or alongside your CRM.",
 };
 
 export default function RootLayout({

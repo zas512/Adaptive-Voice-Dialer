@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { Phone } from "lucide-react";
 import Link from "next/link";
+import { signIn } from "next-auth/react";
+import { useState } from "react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -13,8 +13,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Phone } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -50,7 +50,7 @@ export default function LoginPage() {
         </div>
       </nav>
       <div className="flex items-center justify-center p-6 min-h-[calc(100vh-100px)]">
-        <Card className="glass-card w-full max-w-md">
+        <Card className="glass w-full max-w-md">
           <CardHeader className="space-y-1 text-center">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Phone className="w-8 h-8 text-foreground" />
