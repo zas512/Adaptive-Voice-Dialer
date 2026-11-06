@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import { type NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth-server";
 import connectDB from "@/lib/mongodb";
 import CallLog, { type CallState, type CallType } from "@/models/CallLog";
 
@@ -36,17 +35,11 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function GET(request: Request) {
+export async function GET() {
   try {
-    const user = await getCurrentUser(request);
-    if (!user?.id || !mongoose.isValidObjectId(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     await connectDB();
-    const callLogs = await CallLog.find({ userId: user.id })
+    const callLogs = await CallLog.find({})
       .sort({ endedAt: -1 })
-      .limit(100)
       .lean();
 
     return NextResponse.json({
@@ -75,11 +68,6 @@ export async function GET(request: Request) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser(request);
-    if (!user?.id || !mongoose.isValidObjectId(user.id)) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     let body: unknown;
     try {
       body = await request.json();
@@ -92,6 +80,7 @@ export async function POST(request: NextRequest) {
     }
 
     const {
+      userId,
       sipSessionId,
       phoneNumber,
       callType,
@@ -112,6 +101,8 @@ export async function POST(request: NextRequest) {
       (typeof cancelReason === "string" && cancelReason.length <= 500);
 
     if (
+      typeof userId !== "string" ||
+      !mongoose.isValidObjectId(userId) ||
       typeof sipSessionId !== "string" ||
       !sipSessionId.trim() ||
       sipSessionId.length > 200 ||
@@ -139,7 +130,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const callLog = await CallLog.create({
-      userId: user.id,
+      userId,
       sipSessionId: sipSessionId.trim(),
       phoneNumber: phoneNumber.trim(),
       callType,

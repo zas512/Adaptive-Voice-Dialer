@@ -705,6 +705,7 @@ async function setupCallLifecycle(
           ? "missed"
           : "failed";
     const payload = {
+      userId: user?.id,
       sipSessionId: session.id,
       phoneNumber: remoteNumber,
       callType: incoming ? "inbound" : "outbound",
