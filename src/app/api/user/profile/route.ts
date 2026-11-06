@@ -1,22 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser, requireAuth } from "@/lib/auth-server";
-import { getUserFromDB } from "@/lib/auth-server";
+import { NextResponse } from "next/server";
+import { getCurrentUser, getUserFromDB } from "@/lib/auth-server";
 
 /**
  * GET /api/user/profile
  * Get current user profile
  * Requires authentication
  */
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Option 1: Use requireAuth if you want to return 401 if not authenticated
-    const user = await requireAuth();
-
-    // Option 2: Use getCurrentUser if you want to handle unauthenticated users differently
-    // const user = await getCurrentUser();
-    // if (!user) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
+    const user = await getCurrentUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
     // Get full user data from database
     const fullUser = await getUserFromDB(user.id);
@@ -35,6 +30,7 @@ export async function GET(request: NextRequest) {
         extensionId: fullUser.extensionId,
         host: fullUser.host,
         port: fullUser.port,
+        secret: fullUser.secret,
         createdAt: fullUser.createdAt,
       },
     });
@@ -46,4 +42,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

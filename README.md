@@ -20,6 +20,31 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
+## Demo users
+
+After setting `MONGODB_URI` in `.env.local`, run:
+
+```bash
+npm run seed
+```
+
+This creates or updates these three accounts:
+
+| Role | Email | Default password for new accounts |
+|---|---|---|
+| Admin | `admin@example.com` | `password123` |
+| Agent | `zainalis.914@gmail.com` | `password123` |
+| Agent | `user@example.com` | `password123` |
+
+Seeding updates each listed account's name, role, phone number, extension,
+SIP host, port, and SIP secret. It does not change passwords for accounts that
+already exist. Profile fields (except the SIP secret) are included in the
+NextAuth session when the user signs in; sign out and back in to refresh it.
+
+The seed command refuses to run when `NODE_ENV=production`. The default
+password is for local testing only; change it before using a new seeded account
+outside a development environment.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

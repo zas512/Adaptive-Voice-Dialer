@@ -1,46 +1,461 @@
 "use client";
-import { useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Phone, PhoneOff } from "lucide-react";
-import JsSIP from "jssip";
+import { UA, WebSocketInterface } from "jssip";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
+
+type SipProfile = {
+  id: string;
+  name?: string;
+  extensionId?: string;
+  host?: string;
+  port?: number;
+  secret?: string;
+};
+
+type SipProfileResponse = {
+  user: SipProfile;
+};
 
 export default function HomePage() {
   // Protected route - redirects to login if not authenticated
-  const { isLoading: authLoading } = useProtectedRoute();
+  const { user, isLoading: authLoading, isAuthenticated } = useProtectedRoute();
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [isConnected, setIsConnected] = useState(false);
   const [callStatus, setCallStatus] = useState("");
-  const uaRef = useRef<JsSIP.UA | null>(null);
-  const currentCallRef = useRef(null);
+  const [websocketConnected, setWebsocketConnected] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [isCallActive, setIsCallActive] = useState(false);
+  const [isIncomingCall, setIsIncomingCall] = useState(false);
+  const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
+  const [sipHost, setSipHost] = useState("");
+  const uaRef = useRef<UA | null>(null);
+  const sipExtensionRef = useRef("");
+  const currentCallRef = useRef<ReturnType<UA["call"]> | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  if (authLoading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user?.id) return;
+
+    let disposed = false;
+    let sip: UA | null = null;
+    const controller = new AbortController();
+
+    async function connectToSipServer() {
+      try {
+        const response = await fetch("/api/user/profile", {
+          credentials: "include",
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Could not load SIP profile (${response.status}).`);
+        }
+
+        const { user: profile } =
+          (await response.json()) as SipProfileResponse;
+
+        if (disposed) return;
+
+        const { extensionId, host, port, secret, name } = profile;
+        if (!extensionId || !host || !port || !secret) {
+          setCallStatus("SIP settings are incomplete. Contact your administrator.");
+          return;
+        }
+
+        setSipHost(host);
+        sipExtensionRef.current = extensionId;
+        const websocketUrl = `ws://${host}:${port}/ws`;
+        const sipUri = `sip:${extensionId}@${host}`;
+        console.info("[sip] Connecting with configuration:", {
+          websocketUrl,
+          sipUri,
+          authorizationUser: extensionId,
+          displayName: name || extensionId,
+          registrationEnabled: true,
+        });
+        const socket = new WebSocketInterface(websocketUrl);
+        sip = new UA({
+          sockets: [socket],
+          uri: sipUri,
+          authorization_user: extensionId,
+          password: secret,
+          display_name: name || extensionId,
+          register: true,
+          register_expires: 3600,
+        });
+
+        sip.on("connected", () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setCallStatus("WebSocket connected; registering SIP account...");
+        });
+
+        sip.on("disconnected", () => {
+          if (disposed) return;
+          setWebsocketConnected(false);
+          setIsRegistered(false);
+          setIsCallActive(false);
+          setIsIncomingCall(false);
+          currentCallRef.current = null;
+          setCallStatus("WebSocket disconnected.");
+        });
+
+        sip.on("registered", () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setIsRegistered(true);
+          setCallStatus("Registered and ready.");
+        });
+
+        sip.on("registrationFailed", () => {
+          if (disposed) return;
+          setIsRegistered(false);
+          setCallStatus("SIP registration failed. Check the extension and credentials.");
+        });
+
+        sip.on("newRTCSession", ({ session }) => {
+          if (disposed) {
+            session.terminate();
+            return;
+          }
+
+          const incoming = session.direction === "incoming";
+          const remoteNumber = session.remote_identity.uri.user;
+
+          if (
+            incoming &&
+            remoteNumber.trim().toLowerCase() ===
+              sipExtensionRef.current.trim().toLowerCase()
+          ) {
+            console.warn(
+              "[call] Ignoring call forked back to the same extension without rejecting the PBX branch.",
+              {
+                sessionId: session.id,
+                extension: sipExtensionRef.current,
+              },
+            );
+            return;
+          }
+
+          const existingCall = currentCallRef.current;
+          if (
+            existingCall &&
+            existingCall !== session &&
+            !existingCall.isEnded()
+          ) {
+            console.warn("[call] Ignoring additional call while another is active.", {
+              sessionId: session.id,
+              direction: session.direction,
+              remoteNumber,
+            });
+            session.terminate();
+            return;
+          }
+
+          currentCallRef.current = session;
+          console.info("[call] Call session received:", {
+            sessionId: session.id,
+            direction: session.direction,
+            remoteNumber,
+          });
+          setIsIncomingCall(incoming);
+          setIsCallActive(!incoming);
+          setCallStatus(
+            incoming
+              ? `Incoming call from ${remoteNumber}`
+              : "Calling...",
+          );
+
+          const attachRemoteAudio = (peerConnection: RTCPeerConnection) => {
+            console.info("[media] Peer connection created:", {
+              sessionId: session.id,
+              direction: session.direction,
+              iceConnectionState: peerConnection.iceConnectionState,
+              iceGatheringState: peerConnection.iceGatheringState,
+            });
+
+            peerConnection.addEventListener("iceconnectionstatechange", () => {
+              console.info("[media] ICE connection state:", {
+                sessionId: session.id,
+                state: peerConnection.iceConnectionState,
+              });
+
+              if (peerConnection.iceConnectionState === "failed") {
+                setCallStatus("RTP media connection failed. Check the PBX RTP/ICE network settings.");
+              }
+            });
+
+            peerConnection.addEventListener("connectionstatechange", () => {
+              console.info("[media] Peer connection state:", {
+                sessionId: session.id,
+                state: peerConnection.connectionState,
+              });
+            });
+
+            peerConnection.addEventListener("icecandidateerror", (event) => {
+              console.warn("[media] ICE candidate error:", {
+                sessionId: session.id,
+                errorCode: event.errorCode,
+                errorText: event.errorText,
+              });
+            });
+
+            peerConnection.addEventListener("track", (event) => {
+              const audio = remoteAudioRef.current;
+              if (
+                currentCallRef.current !== session ||
+                !audio ||
+                event.track.kind !== "audio"
+              ) {
+                return;
+              }
+
+              const remoteStream =
+                event.streams[0] ?? new MediaStream([event.track]);
+              audio.srcObject = remoteStream;
+              audio.volume = 1;
+              setAudioPlaybackBlocked(false);
+              console.info("[media] Remote audio track received:", {
+                sessionId: session.id,
+                trackState: event.track.readyState,
+                muted: event.track.muted,
+                streamCount: event.streams.length,
+              });
+              event.track.addEventListener("mute", () => {
+                console.warn("[media] Remote audio track muted.", {
+                  sessionId: session.id,
+                });
+              });
+              event.track.addEventListener("unmute", () => {
+                console.info("[media] Remote audio track unmuted.", {
+                  sessionId: session.id,
+                });
+              });
+
+              void audio.play().then(
+                () => {
+                  console.info("[media] Remote audio playback started.", {
+                    sessionId: session.id,
+                  });
+                },
+                (error: unknown) => {
+                  console.warn("[media] Browser blocked remote audio playback.", {
+                    sessionId: session.id,
+                    error,
+                  });
+                  setAudioPlaybackBlocked(true);
+                  setCallStatus("Call connected. Enable audio playback to hear the call.");
+                },
+              );
+            });
+          };
+
+          if (session.connection) {
+            attachRemoteAudio(session.connection);
+          } else {
+            session.on("peerconnection", ({ peerconnection }) => {
+              attachRemoteAudio(peerconnection);
+            });
+          }
+
+          session.on("accepted", () => {
+            if (disposed || currentCallRef.current !== session) return;
+            console.info("[call] Call accepted:", {
+              sessionId: session.id,
+              direction: session.direction,
+              remoteNumber,
+            });
+            setIsIncomingCall(false);
+            setIsCallActive(true);
+            setCallStatus("In call.");
+          });
+
+          session.on("ended", ({ originator, cause }) => {
+            if (disposed) return;
+            console.info("[call] Call ended:", {
+              sessionId: session.id,
+              direction: session.direction,
+              remoteNumber,
+              originator,
+              cause,
+            });
+            if (currentCallRef.current === session) {
+              currentCallRef.current = null;
+              if (remoteAudioRef.current) {
+                remoteAudioRef.current.srcObject = null;
+              }
+              setAudioPlaybackBlocked(false);
+              setIsCallActive(false);
+              setIsIncomingCall(false);
+              setCallStatus("Call ended.");
+            }
+          });
+
+          session.on("failed", ({ originator, cause, message }) => {
+            if (disposed) return;
+            const sipResponse =
+              "status_code" in message
+                ? {
+                    statusCode: message.status_code,
+                    reasonPhrase: message.reason_phrase,
+                  }
+                : null;
+            console.warn("[call] Call failed:", {
+              sessionId: session.id,
+              direction: session.direction,
+              remoteNumber,
+              originator,
+              cause,
+              sipResponse,
+            });
+            if (currentCallRef.current === session) {
+              currentCallRef.current = null;
+              if (remoteAudioRef.current) {
+                remoteAudioRef.current.srcObject = null;
+              }
+              setAudioPlaybackBlocked(false);
+              setIsCallActive(false);
+              setIsIncomingCall(false);
+              setCallStatus(
+                sipResponse
+                  ? `Call failed: ${sipResponse.statusCode} ${sipResponse.reasonPhrase}.`
+                  : `Call failed: ${cause}.`,
+              );
+            }
+          });
+
+          session.on("getusermediafailed", () => {
+            if (disposed || currentCallRef.current !== session) return;
+            setCallStatus("Microphone access failed. Check browser permissions.");
+          });
+        });
+
+        uaRef.current = sip;
+        sip.start();
+        setCallStatus("Connecting to SIP server...");
+      } catch (error) {
+        if (disposed || controller.signal.aborted) return;
+        console.error("[sip] Could not initialize the dialer.", error);
+        setCallStatus("Could not load SIP settings. Check your profile and try again.");
+      }
+    }
+
+    void connectToSipServer();
+
+    return () => {
+      disposed = true;
+      controller.abort();
+      currentCallRef.current?.terminate();
+      currentCallRef.current = null;
+      uaRef.current = null;
+      sipExtensionRef.current = "";
+      sip?.stop();
+    };
+  }, [authLoading, isAuthenticated, user?.id]);
 
   const handleCall = () => {
-    if (!uaRef.current) {
-      setCallStatus("Not registered. Please configure your SIP settings.");
+    const activeCall = currentCallRef.current;
+
+    if (activeCall && isIncomingCall) {
+      try {
+        console.info("[call] Answering incoming call:", {
+          sessionId: activeCall.id,
+          remoteNumber: activeCall.remote_identity.uri.user,
+        });
+        activeCall.answer({
+          mediaConstraints: {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          },
+        });
+        setCallStatus("Answering call...");
+      } catch (error) {
+        console.error("[sip] Could not answer the call.", error);
+        setCallStatus("Could not answer the call.");
+      }
       return;
     }
 
-    if (currentCallRef.current) {
-      // End current call
+    if (activeCall) {
+      console.info("[call] Hanging up:", {
+        sessionId: activeCall.id,
+        remoteNumber: activeCall.remote_identity.uri.user,
+      });
+      activeCall.terminate();
+      return;
+    }
+
+    if (!phoneNumber.trim()) {
+      setCallStatus("Enter a phone number to call.");
+      return;
+    }
+
+    if (!uaRef.current || !isRegistered || !sipHost) {
+      setCallStatus("Not registered. Wait for SIP registration before calling.");
+      return;
+    }
+
+    try {
+      const target = phoneNumber.trim().replace(/\s/g, "");
+      console.info("[call] Dialing:", {
+        target,
+        sipHost,
+        sipUri: `sip:${target}@${sipHost}`,
+      });
+      currentCallRef.current = uaRef.current.call(
+        `sip:${target}@${sipHost}`,
+        {
+          mediaConstraints: {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          },
+        },
+      );
+      setIsCallActive(true);
+      setCallStatus("Calling...");
+    } catch (error) {
+      console.error("[sip] Could not start the call.", error);
       currentCallRef.current = null;
-      setIsConnected(false);
-      setCallStatus("Call ended");
-      return;
+      setIsCallActive(false);
+      setCallStatus("Could not start the call. Check microphone permissions.");
     }
+  };
 
-    if (!phoneNumber) {
-      setCallStatus("Please enter a phone number");
+  const handleDecline = () => {
+    const activeCall = currentCallRef.current;
+    if (activeCall) {
+      console.info("[call] Declining incoming call:", {
+        sessionId: activeCall.id,
+        remoteNumber: activeCall.remote_identity.uri.user,
+      });
     }
+    currentCallRef.current?.terminate();
+  };
+
+  const handleEnableAudio = () => {
+    const audio = remoteAudioRef.current;
+    if (!audio) return;
+
+    void audio.play().then(
+      () => {
+        setAudioPlaybackBlocked(false);
+      },
+      (error: unknown) => {
+        console.error("[media] Could not start remote audio playback.", error);
+        setAudioPlaybackBlocked(true);
+      },
+    );
   };
 
   const handleNumberClick = (num: string) => {
@@ -55,12 +470,17 @@ export default function HomePage() {
     setPhoneNumber((prev) => prev.slice(0, -1));
   };
 
-  return authLoading ? (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <div className="text-muted-foreground">Loading...</div>
-    </div>
-  ) : (
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  return (
     <div className="space-y-6">
+      <audio ref={remoteAudioRef} autoPlay playsInline />
       <Card className="glass-depth">
         <CardHeader>
           <CardTitle>Important Notices</CardTitle>
@@ -70,19 +490,23 @@ export default function HomePage() {
           <div>
             <div className="text-sm text-muted-foreground">SIP Registration</div>
             <div className="text-base font-semibold text-foreground">
-              {callStatus || "Awaiting registration"}
+              {isRegistered ? "Registered" : "Not registered"}
             </div>
           </div>
           <div>
             <div className="text-sm text-muted-foreground">Active Call</div>
             <div className="text-base font-semibold text-foreground">
-              {isConnected ? "In progress" : "No active calls"}
+              {isIncomingCall
+                ? "Incoming call"
+                : isCallActive
+                  ? "In progress"
+                  : "No active calls"}
             </div>
           </div>
           <div>
             <div className="text-sm text-muted-foreground">WebSocket Status</div>
             <div className="text-base font-semibold text-foreground">
-              {uaRef.current ? "Configured" : "Not configured"}
+              {websocketConnected ? "Connected" : "Disconnected"}
             </div>
           </div>
         </CardContent>
@@ -109,12 +533,12 @@ export default function HomePage() {
           <div className="text-center">
             <div
               className={`inline-block rounded-full px-4 py-2 text-sm ${
-                isConnected
+                isRegistered
                   ? "bg-green-500/20 text-green-500"
                   : "bg-red-500/20 text-red-400"
               }`}
             >
-              {callStatus || (isConnected ? "Ready" : "Not registered")}
+              {callStatus || (isRegistered ? "Ready" : "Connecting to SIP server...")}
             </div>
           </div>
 
@@ -150,11 +574,16 @@ export default function HomePage() {
           <Button
             onClick={handleCall}
             className={`w-full h-16 text-lg ${
-              isConnected ? "bg-destructive hover:bg-destructive/90" : ""
+              isCallActive ? "bg-destructive hover:bg-destructive/90" : ""
             }`}
-            disabled={!isConnected}
+            disabled={!isIncomingCall && !isCallActive && !isRegistered}
           >
-            {isConnected ? (
+            {isIncomingCall ? (
+              <>
+                <Phone className="w-5 h-5 mr-2" />
+                Answer
+              </>
+            ) : isCallActive ? (
               <>
                 <PhoneOff className="w-5 h-5 mr-2" />
                 End Call
@@ -166,6 +595,20 @@ export default function HomePage() {
               </>
             )}
           </Button>
+          {isIncomingCall && (
+            <Button
+              onClick={handleDecline}
+              className="w-full"
+              variant="destructive"
+            >
+              Decline
+            </Button>
+          )}
+          {audioPlaybackBlocked && (
+            <Button onClick={handleEnableAudio} className="w-full" variant="outline">
+              Enable call audio
+            </Button>
+          )}
         </CardContent>
       </Card>
 
@@ -180,24 +623,24 @@ export default function HomePage() {
                 <span className="text-muted-foreground">SIP Status:</span>
                 <span
                   className={
-                    isConnected
+                    websocketConnected
                       ? "text-green-600 dark:text-green-400"
                       : "text-destructive"
                   }
                 >
-                  {isConnected ? "Connected" : "Disconnected"}
+                  {websocketConnected ? "Connected" : "Disconnected"}
                 </span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Call Status:</span>
                 <span
                   className={
-                    isConnected
+                    isCallActive
                       ? "text-green-600 dark:text-green-400"
                       : "text-muted-foreground"
                   }
                 >
-                  {isConnected ? "In Call" : "Idle"}
+                  {isCallActive ? "In Call" : isIncomingCall ? "Incoming" : "Idle"}
                 </span>
               </div>
             </div>

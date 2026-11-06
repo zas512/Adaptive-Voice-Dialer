@@ -37,12 +37,15 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
+        console.warn("[auth] Sign-in failed.");
         setError(result.error);
       } else {
+        console.info("[auth] Sign-in succeeded.");
         router.push("/home");
         router.refresh();
       }
     } catch (err: unknown) {
+      console.error("[auth] Sign-in request failed.");
       const errorMessage = err instanceof Error ? err.message : "An error occurred. Please try again.";
       setError(errorMessage);
     } finally {

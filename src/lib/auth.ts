@@ -42,6 +42,10 @@ export const authOptions: NextAuthOptions = {
           email: user.email,
           name: user.name || "",
           role: user.role,
+          number: user.number,
+          extensionId: user.extensionId,
+          host: user.host,
+          port: user.port,
         };
       },
     }),
@@ -50,14 +54,37 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as { role: string }).role || "user";
       }
+
+      if (token.id && (user || !token.profileLoaded)) {
+        await connectDB();
+        const profile = await User.findById(token.id)
+          .select("-password -secret")
+          .lean();
+
+        if (profile) {
+          token.id = profile._id.toString();
+          token.email = profile.email;
+          token.name = profile.name ?? "";
+          token.role = profile.role;
+          token.number = profile.number;
+          token.extensionId = profile.extensionId;
+          token.host = profile.host;
+          token.port = profile.port;
+          token.profileLoaded = true;
+        }
+      }
+
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id;
         session.user.role = token.role;
+        session.user.number = token.number;
+        session.user.extensionId = token.extensionId;
+        session.user.host = token.host;
+        session.user.port = token.port;
       }
       return session;
     },

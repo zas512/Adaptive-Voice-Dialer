@@ -8,11 +8,11 @@ export default withAuth(
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
-    },
+      authorized: ({ token }) => !!token
+    }
   }
 );
 
 export const config = {
-  matcher: ["/home/:path*"],
+  matcher: ["/home/:path*"]
 };
