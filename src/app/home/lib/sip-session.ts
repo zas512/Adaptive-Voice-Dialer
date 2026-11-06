@@ -6,7 +6,7 @@ export type { RTCSession };
 
 type SipProfile = {
   extensionId?: string;
-  host?: string;
+  url?: string;
   port?: number;
   secret?: string;
   name?: string;
@@ -35,25 +35,61 @@ export class SipSessionManager {
   }
 
   connect() {
-    const { extensionId, host, port, secret, name } = this.profile;
-    if (!extensionId || !host || !port || !secret) {
+    const { extensionId, url, port, secret, name } = this.profile;
+    if (
+      !extensionId?.trim() ||
+      !url?.trim() ||
+      !Number.isInteger(port) ||
+      !port ||
+      port < 1 ||
+      port > 65535 ||
+      !secret
+    ) {
       this.handlers.onRegistrationFailed?.();
       return;
     }
 
-    this.extensionRef.current = `${extensionId}@${host}`;
+    let serverUrl: URL;
+    try {
+      const inputUrl = /^[a-z][a-z\d+.-]*:\/\//i.test(url)
+        ? url
+        : `https://${url}`;
+      serverUrl = new URL(inputUrl);
+    } catch {
+      this.handlers.onRegistrationFailed?.();
+      return;
+    }
+
+    if (
+      !["http:", "https:", "ws:", "wss:"].includes(serverUrl.protocol) ||
+      !serverUrl.hostname ||
+      serverUrl.username ||
+      serverUrl.password
+    ) {
+      this.handlers.onRegistrationFailed?.();
+      return;
+    }
+
+    const host = serverUrl.hostname;
     const websocketScheme =
-      window.location.protocol === "https:" ? "wss:" : "ws:";
-    const websocketUrl = `${websocketScheme}//${host}:${port}/ws`;
-    const sipUri = `sip:${extensionId}@${host}`;
+      serverUrl.protocol === "ws:" || serverUrl.protocol === "wss:"
+        ? serverUrl.protocol
+        : window.location.protocol === "https:"
+          ? "wss:"
+          : "ws:";
+    const websocketPath = serverUrl.pathname === "/" ? "/ws" : serverUrl.pathname;
+    const websocketUrl = `${websocketScheme}//${host}:${port}${websocketPath}${serverUrl.search}`;
+    const normalizedExtension = extensionId.trim();
+    this.extensionRef.current = `${normalizedExtension}@${host}`;
+    const sipUri = `sip:${normalizedExtension}@${host}`;
     const socket = new WebSocketInterface(websocketUrl);
 
     const ua = new UA({
       sockets: [socket],
       uri: sipUri,
-      authorization_user: extensionId,
+      authorization_user: normalizedExtension,
       password: secret,
-      display_name: name || extensionId,
+      display_name: name || normalizedExtension,
       register: true,
       register_expires: 3600,
     });
