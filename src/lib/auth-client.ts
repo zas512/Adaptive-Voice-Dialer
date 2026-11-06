@@ -1,4 +1,4 @@
-import { isAuthUser, type AuthSession } from "./auth-types";
+import { type AuthSession, isAuthUser } from "./auth-types";
 
 const AUTH_SESSION_KEY = "react-dialer.session";
 export const AUTH_SESSION_EVENT = "react-dialer:session-change";

@@ -4,8 +4,6 @@ import { Phone } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { saveAuthSession } from "@/lib/auth-client";
-import { isAuthUser } from "@/lib/auth-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +15,8 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { saveAuthSession } from "@/lib/auth-client";
+import { isAuthUser } from "@/lib/auth-types";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -132,7 +132,10 @@ export default function LoginPage() {
               Need an account? Contact your administrator.
             </div>
             <div className="text-center">
-              <Link href="/" className="text-sm text-muted-foreground hover:text-foreground">
+              <Link
+                href="/"
+                className="text-sm text-muted-foreground hover:text-foreground"
+              >
                 ← Back to home
               </Link>
             </div>

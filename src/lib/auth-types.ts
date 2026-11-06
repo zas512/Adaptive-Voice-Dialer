@@ -9,6 +9,7 @@ export interface AuthUser {
   extensionId?: string;
   host?: string;
   port?: number;
+  secret?: string;
 }
 
 export interface AuthSession {

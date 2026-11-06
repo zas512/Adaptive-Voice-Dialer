@@ -11,10 +11,7 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  async request<T>(
-    endpoint: string,
-    options: RequestOptions = {}
-  ): Promise<T> {
+  async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
     const { requiresAuth = true, headers = {}, ...fetchOptions } = options;
 
     const requestHeaders = new Headers(headers);
@@ -27,7 +24,7 @@ class ApiClient {
     }
 
     const url = endpoint.startsWith("http")
-      ? endpoint 
+      ? endpoint
       : `${this.baseUrl}${endpoint}`;
 
     const response = await fetch(url, {
@@ -65,7 +62,7 @@ class ApiClient {
   async post<T>(
     endpoint: string,
     data?: unknown,
-    options?: RequestOptions
+    options?: RequestOptions,
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,
@@ -80,7 +77,7 @@ class ApiClient {
   async put<T>(
     endpoint: string,
     data?: unknown,
-    options?: RequestOptions
+    options?: RequestOptions,
   ): Promise<T> {
     return this.request<T>(endpoint, {
       ...options,

@@ -1,10 +1,12 @@
 import mongoose from "mongoose";
-import type { AuthUser } from "./auth-types";
-import { verifyAuthToken } from "./auth-token";
-import connectDB from "./mongodb";
 import User from "@/models/User";
+import { verifyAuthToken } from "./auth-token";
+import type { AuthUser } from "./auth-types";
+import connectDB from "./mongodb";
 
-export async function getCurrentUser(request: Request): Promise<AuthUser | null> {
+export async function getCurrentUser(
+  request: Request,
+): Promise<AuthUser | null> {
   const authorization = request.headers.get("authorization");
   const token = authorization?.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!token) return null;

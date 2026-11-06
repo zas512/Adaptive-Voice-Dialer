@@ -1,8 +1,8 @@
 import bcrypt from "bcryptjs";
-import mongoose from "mongoose";
+import type mongoose from "mongoose";
 import { NextResponse } from "next/server";
-import connectDB from "@/lib/mongodb";
 import { createAuthToken } from "@/lib/auth-token";
+import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -15,7 +15,10 @@ export async function POST(request: Request) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
 
     if (

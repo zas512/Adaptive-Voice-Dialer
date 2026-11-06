@@ -77,23 +77,34 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
     if (!isRecord(body)) {
-      return NextResponse.json({ error: "Invalid client data." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid client data." },
+        { status: 400 },
+      );
     }
 
     const name = typeof body.name === "string" ? body.name.trim() : "";
     const contact = typeof body.contact === "string" ? body.contact.trim() : "";
     if (!name || name.length > 160) {
       return NextResponse.json(
-        { error: "Client name is required and must be 160 characters or fewer." },
+        {
+          error: "Client name is required and must be 160 characters or fewer.",
+        },
         { status: 400 },
       );
     }
     if (!contact || contact.length > 254) {
       return NextResponse.json(
-        { error: "Primary contact is required and must be 254 characters or fewer." },
+        {
+          error:
+            "Primary contact is required and must be 254 characters or fewer.",
+        },
         { status: 400 },
       );
     }
@@ -130,18 +141,30 @@ export async function PATCH(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
     if (!isRecord(body)) {
-      return NextResponse.json({ error: "Invalid review data." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid review data." },
+        { status: 400 },
+      );
     }
 
     const id = typeof body.id === "string" ? body.id : "";
     if (!mongoose.isValidObjectId(id)) {
-      return NextResponse.json({ error: "Invalid client record ID." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid client record ID." },
+        { status: 400 },
+      );
     }
     if (!isKycStatus(body.status)) {
-      return NextResponse.json({ error: "Choose a valid review status." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Choose a valid review status." },
+        { status: 400 },
+      );
     }
 
     await connectDB();
@@ -152,7 +175,10 @@ export async function PATCH(request: NextRequest) {
     ).lean();
 
     if (!record) {
-      return NextResponse.json({ error: "Client record not found." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Client record not found." },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({

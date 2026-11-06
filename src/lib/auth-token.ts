@@ -2,12 +2,6 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 const TOKEN_LIFETIME_SECONDS = 30 * 24 * 60 * 60;
 
-interface TokenPayload {
-  sub: string;
-  iat: number;
-  exp: number;
-}
-
 function getSigningSecret(): string {
   const secret = process.env.AUTH_SECRET;
   if (!secret) {
@@ -39,6 +33,7 @@ export function createAuthToken(userId: string): string {
 export function verifyAuthToken(token: string): string | null {
   const [header, payload, signature, extra] = token.split(".");
   if (!header || !payload || !signature || extra !== undefined) return null;
+  const signingSecret = getSigningSecret();
 
   try {
     const decodedHeader: unknown = JSON.parse(
@@ -54,7 +49,7 @@ export function verifyAuthToken(token: string): string | null {
     }
 
     const unsignedToken = `${header}.${payload}`;
-    const expectedSignature = createHmac("sha256", getSigningSecret())
+    const expectedSignature = createHmac("sha256", signingSecret)
       .update(unsignedToken)
       .digest();
     const providedSignature = Buffer.from(signature, "base64url");
@@ -91,10 +86,7 @@ export function verifyAuthToken(token: string): string | null {
     }
 
     return decodedPayload.sub;
-  } catch (error) {
-    if (error instanceof Error && error.message.includes("AUTH_SECRET")) {
-      throw error;
-    }
+  } catch {
     return null;
   }
 }

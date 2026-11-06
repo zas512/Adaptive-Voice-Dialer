@@ -7,7 +7,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function serializeProfile(user: NonNullable<Awaited<ReturnType<typeof getUserFromDB>>>) {
+function serializeProfile(
+  user: NonNullable<Awaited<ReturnType<typeof getUserFromDB>>>,
+) {
   return {
     id: user._id.toString(),
     name: user.name ?? "",
@@ -55,11 +57,17 @@ export async function PATCH(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid JSON body." },
+        { status: 400 },
+      );
     }
 
     if (!isRecord(body)) {
-      return NextResponse.json({ error: "Invalid profile data." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid profile data." },
+        { status: 400 },
+      );
     }
 
     const updates: { name?: string; number?: string } = {};

@@ -2,10 +2,10 @@
 
 import {
   createContext,
+  type ReactNode,
   useContext,
   useEffect,
   useState,
-  type ReactNode,
 } from "react";
 import {
   AUTH_SESSION_EVENT,
@@ -13,7 +13,7 @@ import {
   getStoredAuthSession,
   saveAuthSession,
 } from "@/lib/auth-client";
-import { isAuthUser, type AuthSession, type AuthUser } from "@/lib/auth-types";
+import { type AuthSession, type AuthUser, isAuthUser } from "@/lib/auth-types";
 
 interface AuthContextValue {
   session: AuthSession | null;

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
-import mongoose from "mongoose";
+import type mongoose from "mongoose";
+import { type NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth-server";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
   if (!email || !password) {
     return NextResponse.json(
       { error: "Email and password are required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
   if (existing) {
     return NextResponse.json(
       { error: "User with this email already exists" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -126,7 +126,7 @@ export async function PUT(request: NextRequest) {
     if (duplicate) {
       return NextResponse.json(
         { error: "Email already in use" },
-        { status: 400 }
+        { status: 400 },
       );
     }
     user.email = email;
