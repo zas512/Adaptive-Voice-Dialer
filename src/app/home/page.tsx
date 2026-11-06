@@ -1,11 +1,11 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Phone, PhoneOff } from "lucide-react";
-import { UA, WebSocketInterface } from "jssip";
+import { Input } from "@/components/ui/input";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
+import { UA, WebSocketInterface } from "jssip";
+import { Phone, PhoneOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 type SipProfile = {
   id: string;
@@ -19,6 +19,8 @@ type SipProfile = {
 type SipProfileResponse = {
   user: SipProfile;
 };
+
+type SipSession = ReturnType<UA["call"]>;
 
 export default function HomePage() {
   // Protected route - redirects to login if not authenticated
@@ -116,7 +118,7 @@ export default function HomePage() {
           setCallStatus("SIP registration failed. Check the extension and credentials.");
         });
 
-        sip.on("newRTCSession", ({ session }) => {
+        sip.on("newRTCSession", ({ session }: { session: SipSession }) => {
           if (disposed) {
             session.terminate();
             return;
@@ -156,6 +158,9 @@ export default function HomePage() {
           }
 
           currentCallRef.current = session;
+          const startedAt = new Date();
+          let answeredAt: Date | null = null;
+          let callLogFinalized = false;
           console.info("[call] Call session received:", {
             sessionId: session.id,
             direction: session.direction,
@@ -256,13 +261,17 @@ export default function HomePage() {
           if (session.connection) {
             attachRemoteAudio(session.connection);
           } else {
-            session.on("peerconnection", ({ peerconnection }) => {
+            session.on(
+              "peerconnection",
+              ({ peerconnection }: { peerconnection: RTCPeerConnection }) => {
               attachRemoteAudio(peerconnection);
-            });
+              },
+            );
           }
 
           session.on("accepted", () => {
             if (disposed || currentCallRef.current !== session) return;
+            answeredAt = new Date();
             console.info("[call] Call accepted:", {
               sessionId: session.id,
               direction: session.direction,
@@ -273,59 +282,136 @@ export default function HomePage() {
             setCallStatus("In call.");
           });
 
-          session.on("ended", ({ originator, cause }) => {
-            if (disposed) return;
-            console.info("[call] Call ended:", {
-              sessionId: session.id,
-              direction: session.direction,
-              remoteNumber,
-              originator,
-              cause,
-            });
-            if (currentCallRef.current === session) {
-              currentCallRef.current = null;
-              if (remoteAudioRef.current) {
-                remoteAudioRef.current.srcObject = null;
-              }
-              setAudioPlaybackBlocked(false);
-              setIsCallActive(false);
-              setIsIncomingCall(false);
-              setCallStatus("Call ended.");
-            }
-          });
+          const finalizeCall = (originator?: string, cause?: string) => {
+            if (callLogFinalized) return;
+            callLogFinalized = true;
+            const endedAt = new Date();
+            const callState = answeredAt
+              ? "completed"
+              : incoming
+                ? originator === "local"
+                  ? "cancelled"
+                  : "missed"
+                : cause?.toLowerCase().includes("cancel")
+                  ? "cancelled"
+                  : "failed";
+            const payload = {
+              sipSessionId: session.id,
+              phoneNumber: remoteNumber,
+              callType: incoming ? "inbound" : "outbound",
+              callState,
+              cancelReason: callState === "completed" ? null : cause || "Unknown",
+              hangupBy:
+                originator === "local" ||
+                originator === "remote" ||
+                originator === "system"
+                  ? originator
+                  : null,
+              startedAt: startedAt.toISOString(),
+              answeredAt: answeredAt?.toISOString() ?? null,
+              endedAt: endedAt.toISOString(),
+              durationSeconds: answeredAt
+                ? Math.max(
+                    0,
+                    Math.floor((endedAt.getTime() - answeredAt.getTime()) / 1000),
+                  )
+                : 0,
+            };
 
-          session.on("failed", ({ originator, cause, message }) => {
-            if (disposed) return;
-            const sipResponse =
-              "status_code" in message
-                ? {
-                    statusCode: message.status_code,
-                    reasonPhrase: message.reason_phrase,
-                  }
-                : null;
-            console.warn("[call] Call failed:", {
-              sessionId: session.id,
-              direction: session.direction,
-              remoteNumber,
+            void fetch("/api/user/call-logs", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+              keepalive: true,
+            }).then(async (response) => {
+              if (!response.ok) {
+                const result = (await response.json()) as { error?: string };
+                throw new Error(
+                  result.error || `Call log save failed (${response.status}).`,
+                );
+              }
+            }).catch((error: unknown) => {
+              console.error("[call] Could not save call log.", error);
+            });
+          };
+
+          session.on(
+            "ended",
+            ({ originator, cause }: { originator: string; cause: string }) => {
+              finalizeCall(originator, cause);
+              if (disposed) return;
+              console.info("[call] Call ended:", {
+                sessionId: session.id,
+                direction: session.direction,
+                remoteNumber,
+                originator,
+                cause,
+              });
+              if (currentCallRef.current === session) {
+                currentCallRef.current = null;
+                if (remoteAudioRef.current) {
+                  remoteAudioRef.current.srcObject = null;
+                }
+                setAudioPlaybackBlocked(false);
+                setIsCallActive(false);
+                setIsIncomingCall(false);
+                setCallStatus("Call ended.");
+              }
+            },
+          );
+
+          session.on(
+            "failed",
+            ({
               originator,
               cause,
-              sipResponse,
-            });
-            if (currentCallRef.current === session) {
-              currentCallRef.current = null;
-              if (remoteAudioRef.current) {
-                remoteAudioRef.current.srcObject = null;
+              message,
+            }: {
+              originator: string;
+              cause: string;
+              message: unknown;
+            }) => {
+              finalizeCall(originator, cause);
+              if (disposed) return;
+              const sipResponse =
+                typeof message === "object" &&
+                message !== null &&
+                "status_code" in message &&
+                typeof message.status_code === "number"
+                  ? {
+                      statusCode: message.status_code,
+                      reasonPhrase:
+                        "reason_phrase" in message &&
+                        typeof message.reason_phrase === "string"
+                          ? message.reason_phrase
+                          : "",
+                    }
+                  : null;
+              console.warn("[call] Call failed:", {
+                sessionId: session.id,
+                direction: session.direction,
+                remoteNumber,
+                originator,
+                cause,
+                sipResponse,
+              });
+              if (currentCallRef.current === session) {
+                currentCallRef.current = null;
+                if (remoteAudioRef.current) {
+                  remoteAudioRef.current.srcObject = null;
+                }
+                setAudioPlaybackBlocked(false);
+                setIsCallActive(false);
+                setIsIncomingCall(false);
+                setCallStatus(
+                  sipResponse
+                    ? `Call failed: ${sipResponse.statusCode} ${sipResponse.reasonPhrase}.`
+                    : `Call failed: ${cause}.`,
+                );
               }
-              setAudioPlaybackBlocked(false);
-              setIsCallActive(false);
-              setIsIncomingCall(false);
-              setCallStatus(
-                sipResponse
-                  ? `Call failed: ${sipResponse.statusCode} ${sipResponse.reasonPhrase}.`
-                  : `Call failed: ${cause}.`,
-              );
-            }
-          });
+            },
+          );
 
           session.on("getusermediafailed", () => {
             if (disposed || currentCallRef.current !== session) return;

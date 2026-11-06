@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -15,48 +18,74 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 
-const callLogs = [
-  {
-    id: "CAL-001",
-    contact: "John Carter",
-    direction: "Outbound",
-    duration: "03:24",
-    status: "Completed",
-    startedAt: "2025-03-18 10:32 AM",
-  },
-  {
-    id: "CAL-002",
-    contact: "Acme Support",
-    direction: "Inbound",
-    duration: "00:58",
-    status: "Missed",
-    startedAt: "2025-03-18 09:15 AM",
-  },
-  {
-    id: "CAL-003",
-    contact: "Jane Smith",
-    direction: "Outbound",
-    duration: "12:11",
-    status: "Completed",
-    startedAt: "2025-03-17 05:42 PM",
-  },
-  {
-    id: "CAL-004",
-    contact: "Inbound Queue",
-    direction: "Inbound",
-    duration: "08:03",
-    status: "Voicemail",
-    startedAt: "2025-03-17 04:12 PM",
-  },
-];
+interface CallLog {
+  id: string;
+  sipSessionId: string;
+  phoneNumber: string;
+  callType: "inbound" | "outbound";
+  callState: "completed" | "missed" | "cancelled" | "failed";
+  cancelReason: string | null;
+  startedAt: string;
+  durationSeconds: number;
+}
 
-const statusStyles: Record<string, string> = {
-  Completed: "bg-emerald-500/20 text-emerald-500",
-  Missed: "bg-destructive/10 text-destructive",
-  Voicemail: "bg-blue-500/20 text-blue-500",
+const statusStyles: Record<CallLog["callState"], string> = {
+  completed: "bg-emerald-500/20 text-emerald-500",
+  missed: "bg-destructive/10 text-destructive",
+  cancelled: "bg-amber-500/20 text-amber-500",
+  failed: "bg-blue-500/20 text-blue-500",
 };
 
+function formatDuration(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function formatDate(value: string) {
+  return new Date(value).toLocaleString();
+}
+
 export default function CallLogsPage() {
+  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadCallLogs() {
+      try {
+        const response = await fetch("/api/user/call-logs", {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        const result = (await response.json()) as {
+          callLogs?: CallLog[];
+          error?: string;
+        };
+        if (!response.ok) {
+          throw new Error(result.error || "Could not load call logs.");
+        }
+        setCallLogs(result.callLogs ?? []);
+      } catch (loadError: unknown) {
+        if (controller.signal.aborted) return;
+        setError(
+          loadError instanceof Error
+            ? loadError.message
+            : "Could not load call logs.",
+        );
+      } finally {
+        if (!controller.signal.aborted) setIsLoading(false);
+      }
+    }
+
+    void loadCallLogs();
+    return () => controller.abort();
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -81,35 +110,67 @@ export default function CallLogsPage() {
               <TableRow>
                 <TableHead>Call ID</TableHead>
                 <TableHead>Contact</TableHead>
-                <TableHead>Direction</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Call State</TableHead>
+                <TableHead>Cancel Reason</TableHead>
                 <TableHead>Started At</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {callLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="font-medium">{log.id}</TableCell>
-                  <TableCell>{log.contact}</TableCell>
-                  <TableCell>{log.direction}</TableCell>
-                  <TableCell>{log.duration}</TableCell>
-                  <TableCell>
-                    <span
-                      className={cn(
-                        "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
-                        statusStyles[log.status] ??
-                          "bg-muted text-muted-foreground",
-                      )}
-                    >
-                      {log.status}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {log.startedAt}
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-muted-foreground"
+                  >
+                    Loading call logs...
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : error ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-destructive"
+                  >
+                    {error}
+                  </TableCell>
+                </TableRow>
+              ) : callLogs.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center text-muted-foreground"
+                  >
+                    No calls have been logged yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                callLogs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="font-medium">
+                      {log.sipSessionId.slice(-8)}
+                    </TableCell>
+                    <TableCell>{log.phoneNumber}</TableCell>
+                    <TableCell className="capitalize">{log.callType}</TableCell>
+                    <TableCell>{formatDuration(log.durationSeconds)}</TableCell>
+                    <TableCell>
+                      <span
+                        className={cn(
+                          "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
+                          statusStyles[log.callState],
+                        )}
+                      >
+                        {log.callState}
+                      </span>
+                    </TableCell>
+                    <TableCell>{log.cancelReason ?? "—"}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(log.startedAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -117,4 +178,3 @@ export default function CallLogsPage() {
     </div>
   );
 }
-

@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +17,6 @@ import { Phone } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -30,25 +28,15 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const result = await signIn("credentials", {
+      await signIn("credentials", {
         email,
         password,
-        redirect: false,
+        callbackUrl: `${window.location.origin}/home`,
       });
-
-      if (result?.error) {
-        console.warn("[auth] Sign-in failed.");
-        setError(result.error);
-      } else {
-        console.info("[auth] Sign-in succeeded.");
-        router.push("/home");
-        router.refresh();
-      }
     } catch (err: unknown) {
-      console.error("[auth] Sign-in request failed.");
+      console.error("[auth] Sign-in request failed.", err);
       const errorMessage = err instanceof Error ? err.message : "An error occurred. Please try again.";
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   };

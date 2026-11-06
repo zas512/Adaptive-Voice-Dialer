@@ -45,6 +45,15 @@ The seed command refuses to run when `NODE_ENV=production`. The default
 password is for local testing only; change it before using a new seeded account
 outside a development environment.
 
+## Call logs
+
+The dialer saves each SIP call when it ends or fails. `POST /api/user/call-logs`
+stores the authenticated user's SIP session ID, phone number, inbound/outbound
+type, call state, cancellation reason, hangup originator, start/answer/end
+timestamps, and connected duration in MongoDB. The user ID is taken from the
+authenticated session rather than the request body. `GET /api/user/call-logs`
+returns the latest 100 logs for that user.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:
