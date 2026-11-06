@@ -22,11 +22,21 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Demo users
 
-After setting `MONGODB_URI` in `.env.local`, run:
+Set `MONGODB_URI` and `AUTH_SECRET` in `.env.local`, then run:
 
 ```bash
 npm run seed
 ```
+
+Generate an `AUTH_SECRET` with:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+```
+
+Sign-in uses `POST /api/auth/login` to issue a bearer token. The browser keeps
+the session in local storage and sends the token with API requests. Each device
+can sign in independently; signing out clears only that browser's session.
 
 This creates or updates these three accounts:
 
@@ -38,8 +48,9 @@ This creates or updates these three accounts:
 
 Seeding updates each listed account's name, role, phone number, extension,
 SIP host, port, and SIP secret. It does not change passwords for accounts that
-already exist. Profile fields (except the SIP secret) are included in the
-NextAuth session when the user signs in; sign out and back in to refresh it.
+already exist. Profile fields (except the SIP secret) are returned by the sign-in API.
+The session is checked against the current user record when the browser opens,
+so role and profile changes take effect without signing out and back in.
 
 The seed command refuses to run when `NODE_ENV=production`. The default
 password is for local testing only; change it before using a new seeded account
@@ -48,7 +59,7 @@ outside a development environment.
 ## Call logs
 
 The dialer saves each SIP call when it ends or fails. `POST /api/user/call-logs`
-stores the authenticated user's SIP session ID, phone number, inbound/outbound
+stores the bearer-authenticated user's SIP session ID, phone number, inbound/outbound
 type, call state, cancellation reason, hangup originator, start/answer/end
 timestamps, and connected duration in MongoDB. The user ID is taken from the
 authenticated session rather than the request body. `GET /api/user/call-logs`

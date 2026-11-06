@@ -30,9 +30,9 @@ One dialer that both stands alone and drops into any CRM, on open SIP rather tha
 
 ## Capabilities and Constraints
 
-- **Confirmed functionality:** credentials auth (NextAuth, JWT sessions); role-gated routes; admin CRUD over users and their SIP provisioning; a dialer workspace; call logs; settings/profile.
+- **Confirmed functionality:** credentials auth with browser-local bearer sessions; role-gated API routes; admin CRUD over users and their SIP provisioning; a dialer workspace; call logs; settings/profile.
 - **Required, not yet done:** real JsSIP registration and call placement end-to-end; call logs as real persisted records rather than hardcoded rows; server-side RBAC enforced on every route, not only in the client.
-- **Stack (fixed by the user):** Next.js 16 App Router, React 19, MongoDB via Mongoose, NextAuth. Do not re-platform.
+- **Stack (fixed by the user):** Next.js 16 App Router, React 19, MongoDB via Mongoose. Do not re-platform.
 - **Standalone + embeddable is a core constraint:** page-level assumptions (fixed full-height shells, global scroll hijacking, an app-owned body background) must not break when the dialer is placed inside a host app.
 - **Terminology:** extension, registration, trunk/host, port, secret, agent, admin, call log, disposition.
 

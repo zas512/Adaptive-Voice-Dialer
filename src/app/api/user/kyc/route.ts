@@ -37,15 +37,15 @@ function serializeRecord(record: {
   };
 }
 
-async function getOwnerId() {
-  const user = await getCurrentUser();
+async function getOwnerId(request: Request) {
+  const user = await getCurrentUser(request);
   if (!user?.id || !mongoose.isValidObjectId(user.id)) return null;
   return user.id;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const ownerId = await getOwnerId();
+    const ownerId = await getOwnerId(request);
     if (!ownerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -68,7 +68,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const ownerId = await getOwnerId();
+    const ownerId = await getOwnerId(request);
     if (!ownerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const ownerId = await getOwnerId();
+    const ownerId = await getOwnerId(request);
     if (!ownerId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

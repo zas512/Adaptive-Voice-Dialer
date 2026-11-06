@@ -1,16 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
 import mongoose from "mongoose";
-import { authOptions } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth-server";
 import connectDB from "@/lib/mongodb";
 import User from "@/models/User";
 
-async function assertAdmin() {
-  const session = await getServerSession(authOptions);
-  if (session?.user?.role !== "admin") {
-    return null;
+async function assertAdmin(request: Request) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return session.user;
+  if (user.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  return null;
 }
 
 function sanitizeUser(user: typeof User.prototype) {
@@ -29,11 +31,9 @@ function sanitizeUser(user: typeof User.prototype) {
   };
 }
 
-export async function GET() {
-  const adminUser = await assertAdmin();
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export async function GET(request: NextRequest) {
+  const authError = await assertAdmin(request);
+  if (authError) return authError;
 
   await connectDB();
 
@@ -43,10 +43,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const adminUser = await assertAdmin();
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authError = await assertAdmin(request);
+  if (authError) return authError;
 
   const body = await request.json();
   const {
@@ -94,10 +92,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const adminUser = await assertAdmin();
-  if (!adminUser) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authError = await assertAdmin(request);
+  if (authError) return authError;
 
   const body = await request.json();
   const {

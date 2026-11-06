@@ -22,9 +22,9 @@ function serializeProfile(user: NonNullable<Awaited<ReturnType<typeof getUserFro
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(request);
     if (!user?.id || !mongoose.isValidObjectId(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -46,7 +46,7 @@ export async function GET() {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(request);
     if (!user?.id || !mongoose.isValidObjectId(user.id)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

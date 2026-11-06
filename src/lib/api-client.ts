@@ -1,7 +1,4 @@
-/**
- * API Client for making authenticated requests
- * Automatically includes JWT token from NextAuth session
- */
+import { clearAuthSession, getStoredAuthSession } from "./auth-client";
 
 type RequestOptions = RequestInit & {
   requiresAuth?: boolean;
@@ -14,47 +11,33 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  /**
-   * Get auth token from session
-   */
-  private async getAuthToken(): Promise<string | null> {
-    try {
-      const response = await fetch("/api/auth/session", {
-        credentials: "include",
-      });
-      const session = await response.json();
-      return session?.accessToken || null;
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Make authenticated API request
-   */
   async request<T>(
     endpoint: string,
     options: RequestOptions = {}
   ): Promise<T> {
     const { requiresAuth = true, headers = {}, ...fetchOptions } = options;
 
-    const requestHeaders: HeadersInit = {
-      "Content-Type": "application/json",
-      ...headers,
-    };
+    const requestHeaders = new Headers(headers);
+    if (!requestHeaders.has("Content-Type")) {
+      requestHeaders.set("Content-Type", "application/json");
+    }
+    const session = requiresAuth ? getStoredAuthSession() : null;
+    if (session) {
+      requestHeaders.set("Authorization", `Bearer ${session.token}`);
+    }
 
-    // Auth is handled via cookies (NextAuth)
-    // No need to add Authorization header when using cookies
-
-    const url = endpoint.startsWith("http") 
+    const url = endpoint.startsWith("http")
       ? endpoint 
       : `${this.baseUrl}${endpoint}`;
 
     const response = await fetch(url, {
       ...fetchOptions,
       headers: requestHeaders,
-      credentials: "include", // Include cookies
     });
+
+    if (response.status === 401 && requiresAuth) {
+      clearAuthSession();
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({
@@ -118,4 +101,3 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
-

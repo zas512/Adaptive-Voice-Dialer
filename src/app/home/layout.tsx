@@ -1,12 +1,12 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { clearAuthSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 interface HomeLayoutProps {
@@ -16,6 +16,7 @@ interface HomeLayoutProps {
 
 export default function HomeLayout({ children, className }: HomeLayoutProps) {
   const pathname = usePathname();
+  const router = useRouter();
 
   const titleMap: Record<string, string> = {
     "/home": "Dialer",
@@ -46,7 +47,10 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
               <ThemeToggle />
               <Button
                 variant="ghost"
-                onClick={() => signOut({ callbackUrl: "/" })}
+                onClick={() => {
+                  clearAuthSession();
+                  router.replace("/");
+                }}
                 className="flex items-center gap-2"
               >
                 <LogOut className="h-4 w-4" />

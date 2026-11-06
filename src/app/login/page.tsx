@@ -2,8 +2,10 @@
 
 import { Phone } from "lucide-react";
 import Link from "next/link";
-import { signIn } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { saveAuthSession } from "@/lib/auth-client";
+import { isAuthUser } from "@/lib/auth-types";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -28,14 +31,42 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signIn("credentials", {
-        email,
-        password,
-        callbackUrl: `${window.location.origin}/home`,
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
+      const result: unknown = await response.json();
+      if (!response.ok) {
+        const message =
+          typeof result === "object" &&
+          result !== null &&
+          "error" in result &&
+          typeof result.error === "string"
+            ? result.error
+            : "Could not sign in. Please try again.";
+        throw new Error(message);
+      }
+
+      if (
+        typeof result !== "object" ||
+        result === null ||
+        !("token" in result) ||
+        typeof result.token !== "string" ||
+        !("user" in result) ||
+        !isAuthUser(result.user)
+      ) {
+        throw new Error("The sign-in response was invalid. Please try again.");
+      }
+
+      saveAuthSession({ token: result.token, user: result.user });
+      router.replace("/home");
     } catch (err: unknown) {
       console.error("[auth] Sign-in request failed.", err);
-      const errorMessage = err instanceof Error ? err.message : "An error occurred. Please try again.";
+      const errorMessage =
+        err instanceof Error
+          ? err.message
+          : "An error occurred. Please try again.";
       setError(errorMessage);
       setLoading(false);
     }
