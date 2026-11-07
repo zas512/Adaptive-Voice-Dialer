@@ -53,7 +53,7 @@ export function Sidebar() {
 
   return (
     <aside className="w-full shrink-0 lg:w-60 xl:w-64">
-      <div className="flex w-full flex-col gap-4 border-b border-border/80 pb-3 lg:sticky lg:top-0 lg:min-h-svh lg:border-b-0 lg:border-r lg:bg-card/70 lg:px-5 lg:py-7">
+      <div className="flex w-full flex-col gap-4 border-b border-border/80 pb-3 lg:sticky lg:top-0 lg:min-h-svh lg:border-b-0 lg:border-r lg:bg-card lg:px-5 lg:py-7">
         <Link href="/home" className="hidden items-center gap-3 px-2 lg:flex">
           <span className="flex size-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <PhoneCall className="size-5" />
@@ -84,9 +84,9 @@ export function Sidebar() {
                 asChild
                 variant="ghost"
                 className={cn(
-                  "h-11 shrink-0 justify-start gap-3 rounded-xl px-3 text-muted-foreground lg:w-full",
+                  "h-11 shrink-0 justify-start gap-3 rounded-xl px-3 text-muted-foreground hover:text-foreground lg:w-full",
                   isActive &&
-                    "bg-secondary font-semibold text-secondary-foreground hover:bg-secondary",
+                    "bg-primary/10 font-semibold text-primary hover:bg-primary/15",
                 )}
               >
                 <Link href={item.href} aria-current={isActive ? "page" : undefined}>

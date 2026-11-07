@@ -17,6 +17,22 @@ import { resetOutsideCall } from "../../redux/phoneSlice";
 import FollowPopUp from "../../components/customers/FollowPopUp";
 import Dialog from "../../components/ui/Dialog";
 
+const isDialerDebugEnabled = process.env.NODE_ENV === "development";
+
+const logDialer = (event: string, details: Record<string, unknown> = {}) => {
+  if (!isDialerDebugEnabled) return;
+  console.info(`[Dialer] ${new Date().toISOString()} ${event}`, details);
+};
+
+const getCallSnapshot = (call: any) => ({
+  sessionId: call?._request?.call_id,
+  direction: call?.direction,
+  status: call?.status,
+  localIdentity: call?.local_identity?.uri?.toString?.(),
+  remoteIdentity: call?.remote_identity?.uri?.toString?.(),
+  startTime: call?.start_time,
+  endTime: call?.end_time,
+});
 
 const Phone = ({
   id,
@@ -58,7 +74,7 @@ const Phone = ({
 
   // WebSocket configuration
   const configuration = {
-    traceSip: true,
+    traceSip: isDialerDebugEnabled,
     register: true,
     hackIpInContact: true,
     hackWssInTransport: true,
@@ -71,15 +87,9 @@ const Phone = ({
     password: password,
   };
 
-  // Function to handle event logging
-  // const logEvent = (eventType: string, data: any) => {
-  //   if (import.meta.env.VITE_NODE_ENV === "development") {
-  //     console.log(`[Event: ${eventType}]`, data);
-  //   }
-  // };
-  
   useEffect(() => {
     if (outsideCallDial.phone !== "" && outsideCallDial.phone !== undefined) {
+      logDialer("outbound-call:requested", { customerInfo: outsideCallDial });
       setClientName(outsideCallDial.customerName);
       setNciValue(outsideCallDial.nci);
       setBlock(outsideCallDial.block);
@@ -93,13 +103,15 @@ const Phone = ({
 
 
   useEffect(() => {
-    console.log("clientName", clientName);
-    console.log("nciValue", nciValue);
-    console.log("block", block);
-    console.log("size", size);
-    console.log("project", project);
-    console.log("dueAmount", dueAmount);
-    console.log("dueMonth", dueMonth);
+    logDialer("customer-context:updated", {
+      clientName,
+      nciValue,
+      block,
+      size,
+      project,
+      dueAmount,
+      dueMonth,
+    });
   }, [clientName, nciValue, block, size, project, dueAmount, dueMonth]);
 
   // Calculate call duration
@@ -150,7 +162,11 @@ const Phone = ({
     ];
     _.forEach(eventsToHandle, (eventType) => {
       call.on(eventType, (data: any) => {
-        // logEvent(eventType, data);
+        logDialer("session:event", {
+          eventType,
+          eventData: data,
+          call: getCallSnapshot(call),
+        });
         handleSessionEvent(eventType, data, call);
       });
     });
@@ -185,6 +201,7 @@ const Phone = ({
         originator === "remote" ? call?.remote_identity?.uri?.user : id;
       currentCall.status = "call_failed";
       currentCall.cause = cause || "NO_ANSWER";
+      logDialer("call:failed", { callData: currentCall, eventData: data });
       emitCallLogs(currentCall);
       localStorage.removeItem("liveCall");
       callDisconnect();
@@ -194,9 +211,11 @@ const Phone = ({
   const toggleMute = () => {
     if (activeCall) {
       if (isMuted) {
+        logDialer("call:unmute", { call: getCallSnapshot(activeCall) });
         activeCall.unmute({ audio: true });
         setIsMuted(false);
       } else {
+        logDialer("call:mute", { call: getCallSnapshot(activeCall) });
         activeCall.mute({ audio: true });
         setIsMuted(true);
       }
@@ -205,9 +224,17 @@ const Phone = ({
 
   const transferCall = (targetURI: string) => {
     if (activeCall && targetURI) {
+      logDialer("call:transfer:requested", {
+        targetURI,
+        call: getCallSnapshot(activeCall),
+      });
       activeCall.sendRefer(`sip:${targetURI}@${domain}`, {
         eventHandlers: {
           succeeded: () => {
+            logDialer("call:transfer:succeeded", {
+              targetURI,
+              call: getCallSnapshot(activeCall),
+            });
             setCallAlert((prevState) => ({
               ...prevState,
               status: "call_transferred",
@@ -217,6 +244,10 @@ const Phone = ({
             setTransferNumber("");
           },
           failed: () => {
+            logDialer("call:transfer:failed", {
+              targetURI,
+              call: getCallSnapshot(activeCall),
+            });
             setCallAlert((prevState) => ({
               ...prevState,
               status: "transfer_failed",
@@ -233,7 +264,7 @@ const Phone = ({
   useEffect(() => {
     if (outsideCallDial.phone !== "" && outsideCallDial.phone !== undefined) {
       sessionStorage.setItem("customerInfo", JSON.stringify(outsideCallDial));
-      console.log("outsideCallDial", outsideCallDial);
+      logDialer("customer-context:stored", { customerInfo: outsideCallDial });
     }
   }, [outsideCallDial]);
 
@@ -256,9 +287,9 @@ const Phone = ({
     };
     try {
       handleFollowUp();
-      console.log("callData to be inserted", callData);
+      logDialer("call-log:submitting", { callData });
       const response = await insertReport(callData);
-      console.log("log1122 CRD response", response);
+      logDialer("call-log:response", { response });
       if(response.data){
         setCdrResponse(true);
         setTimeout(() => {
@@ -273,6 +304,7 @@ const Phone = ({
         }, 10000);
       }
     } catch (error) {
+      logDialer("call-log:error", { error, callData });
       console.error("Error emitting call logs:", error);
       toast.error("Error emitting call logs");
       setShowFollowUpPopup(false);
@@ -285,12 +317,16 @@ const Phone = ({
   const handleCallEnd = (data: any, call: any) => {
     const currentCall = JSON.parse(localStorage.getItem("liveCall") ?? "{}");
     if (currentCall) {
-      console.log("usama currentCall", currentCall);
       const { originator, cause } = data;
       currentCall.hangupBy =
         originator === "remote" ? call?.remote_identity?.uri?.user : id;
       currentCall.status = "call_ended";
       currentCall.cause = cause || "ANSWER";
+      logDialer("call:ended", {
+        callData: currentCall,
+        eventData: data,
+        call: getCallSnapshot(call),
+      });
       emitCallLogs(currentCall);
       localStorage.removeItem("liveCall");
       callDisconnect();
@@ -307,6 +343,7 @@ const Phone = ({
   // Handle accept call
   const acceptHandle = () => {
     if (queueCalls) {
+      logDialer("call:answer:requested", { call: getCallSnapshot(queueCalls) });
       stopRing();
       queueCalls.answer({
         mediaConstraints: {
@@ -327,6 +364,7 @@ const Phone = ({
   // Handle reject call
   const rejectHandle = () => {
     if (queueCalls) {
+      logDialer("call:reject:requested", { call: getCallSnapshot(queueCalls) });
       queueCalls.terminate();
       setCallAlert((prevState) => ({
         ...prevState,
@@ -343,6 +381,11 @@ const Phone = ({
     if (phoneAudioRef.current) {
       call.connection.addEventListener("track", (event: any) => {
         if (event.track.kind === "audio") {
+          logDialer("call:audio-track", {
+            kind: event.track.kind,
+            streamId: event.streams[0]?.id,
+            call: getCallSnapshot(call),
+          });
           phoneAudioRef.current!.srcObject = event.streams[0];
           phoneAudioRef.current!.play();
         }
@@ -354,6 +397,11 @@ const Phone = ({
 
   // Handle dialing a phone number
   const callPhoneNumber = async (phoneNumber: string) => {
+    logDialer("outbound-call:dialing", {
+      phoneNumber,
+      domain,
+      sipReady: Boolean(sipDial),
+    });
     if (sipDial) {
       const options = {
         mediaConstraints: {
@@ -361,8 +409,12 @@ const Phone = ({
         },
       };
       try {
-        sipDial.call(`sip:${phoneNumber}@${domain}`, options);
+        const call = sipDial.call(`sip:${phoneNumber}@${domain}`, options);
+        logDialer("outbound-call:session-created", {
+          call: getCallSnapshot(call),
+        });
       } catch (error) {
+        logDialer("outbound-call:error", { phoneNumber, error });
         toast.error("Phone number not allowed!");
       }
     } else {
@@ -398,6 +450,7 @@ const Phone = ({
       const sip = new UA({ ...configuration, sockets: [socket] });
 
       sip.on("connected", () => {
+        logDialer("sip:connected", { domain, port, userId: id });
         setIsSipConnected(true);
         setIsUserRegistered(false);
         setServerConnected(true);
@@ -405,6 +458,7 @@ const Phone = ({
       });
 
       sip.on("disconnected", () => {
+        logDialer("sip:disconnected", { domain, port, userId: id });
         setIsSipConnected(false);
         setIsUserRegistered(false);
         setServerConnected(false);
@@ -412,6 +466,7 @@ const Phone = ({
       });
 
       sip.on("registered", () => {
+        logDialer("sip:registered", { domain, port, userId: id });
         setIsUserRegistered(true);
         setIsSipConnected(true);
         setServerConnected(true);
@@ -419,6 +474,7 @@ const Phone = ({
       });
 
       sip.on("registrationFailed", () => {
+        logDialer("sip:registration-failed", { domain, port, userId: id });
         setIsUserRegistered(false);
         setIsSipConnected(true);
         setServerConnected(true);
@@ -440,6 +496,10 @@ const Phone = ({
           userId: id,
           user_name: userName,
         };
+        logDialer("call:session-created", {
+          callData: newCallAlert,
+          call: getCallSnapshot(call),
+        });
 
         if (call.direction === "incoming") {
           playRing();

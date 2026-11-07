@@ -13,7 +13,6 @@ type SipConfig = {
   url: string;
   port: string;
   extension: string;
-  password: string;
 };
 
 type CallPhase =
@@ -44,13 +43,11 @@ function getDefaultSipConfig(user: {
   extensionId?: string;
   host?: string;
   port?: number;
-  secret?: string;
 }): SipConfig {
   return {
     url: user.host ?? "",
     port: user.port ? String(user.port) : "",
     extension: user.extensionId ?? "",
-    password: user.secret ?? "",
   };
 }
 
@@ -72,12 +69,10 @@ function getStoredSipConfig(userId: string): SipConfig | null {
     throw new Error("Saved SIP settings are not valid.");
   }
 
-  const password = "password" in value ? value.password : "";
   if (
     typeof value.url !== "string" ||
     typeof value.port !== "string" ||
-    typeof value.extension !== "string" ||
-    typeof password !== "string"
+    typeof value.extension !== "string"
   ) {
     throw new Error("Saved SIP settings are incomplete.");
   }
@@ -86,7 +81,6 @@ function getStoredSipConfig(userId: string): SipConfig | null {
     url: value.url,
     port: value.port,
     extension: value.extension,
-    password,
   };
 }
 
@@ -96,13 +90,11 @@ export default function HomePage() {
     url: "",
     port: "",
     extension: "",
-    password: "",
   });
   const [sipConfigDraft, setSipConfigDraft] = useState<SipConfig>({
     url: "",
     port: "",
     extension: "",
-    password: "",
   });
   const [configuredUserId, setConfiguredUserId] = useState<string | null>(null);
   const [sipConfigError, setSipConfigError] = useState<string | null>(null);
@@ -309,7 +301,6 @@ export default function HomePage() {
       url: sipConfigDraft.url.trim(),
       port: sipConfigDraft.port.trim(),
       extension: sipConfigDraft.extension.trim(),
-      password: sipConfigDraft.password,
     };
     const port = Number(nextConfig.port);
 
@@ -325,11 +316,6 @@ export default function HomePage() {
       setSipConfigError("Enter your SIP extension.");
       return;
     }
-    if (!nextConfig.password) {
-      setSipConfigError("Enter your SIP password.");
-      return;
-    }
-
     let parsedUrl: URL;
     try {
       const inputUrl = /^[a-z][a-z\d+.-]*:\/\//i.test(nextConfig.url)
@@ -410,7 +396,7 @@ export default function HomePage() {
       extensionId: sipConfig.extension,
       url: sipConfig.url,
       port: Number(sipConfig.port),
-      secret: sipConfig.password || user?.secret,
+      secret: sipConfig.extension,
       name: user?.name,
     };
 
@@ -565,79 +551,86 @@ export default function HomePage() {
       </div>
 
       <section
-        className="grid gap-px overflow-hidden rounded-2xl border border-border bg-border shadow-sm sm:grid-cols-2 xl:grid-cols-4"
+        className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
         role="status"
         aria-label="Dialer status"
       >
         <StatusRow
-          icon={
-            isRegistered ? (
-              <Volume2 className="size-4 text-success" />
-            ) : (
-              <AlertCircle className="size-4 text-warning" />
-            )
+          icon={isRegistered ? <Volume2 /> : <AlertCircle />}
+          title="SIP line"
+          value={
+            isRegistered
+              ? "Registered"
+              : registrationFailed
+                ? "Registration failed"
+                : websocketConnected
+                  ? "Registering"
+                  : "Disconnected"
           }
-          label={`SIP ${isRegistered ? "registered" : registrationFailed ? "registration failed" : websocketConnected ? "registering" : "disconnected"}`}
+          tone={
+            isRegistered
+              ? "success"
+              : registrationFailed || !websocketConnected
+                ? "danger"
+                : "warning"
+          }
+        />
+        <StatusRow
+          icon={websocketConnected ? <Volume2 /> : <VolumeX />}
+          title="WebSocket"
+          value={websocketConnected ? "Connected" : "Disconnected"}
+          tone={websocketConnected ? "success" : "danger"}
         />
         <StatusRow
           icon={
-            websocketConnected ? (
-              <Volume2 className="size-4 text-success" />
-            ) : (
-              <VolumeX className="size-4 text-muted-foreground" />
-            )
+            isIncomingCall || isCallActive ? <Phone /> : <PhoneOff />
           }
-          label={`Transport ${websocketConnected ? "connected" : "disconnected"}`}
-        />
-        <StatusRow
-          icon={
-            isIncomingCall ? (
-              <Phone className="size-4 text-warning" />
-            ) : isCallActive ? (
-              <Phone className="size-4 text-success" />
-            ) : callPhase === "failed" ? (
-              <AlertCircle className="size-4 text-destructive" />
-            ) : (
-              <PhoneOff className="size-4 text-muted-foreground" />
-            )
-          }
-          label={statusLabel}
-        />
-        <StatusRow
-          icon={
-            isAudioOn ? (
-              <Volume2 className="size-4 text-success" />
-            ) : (
-              <VolumeX className="size-4 text-muted-foreground" />
-            )
-          }
-          label={
+          title="Call"
+          value={statusLabel}
+          tone={
             isCallActive
-              ? `Speaker ${isAudioOn ? "on" : "off"}`
-              : "Speaker ready"
+              ? "success"
+              : isIncomingCall
+                ? "warning"
+                : callPhase === "failed" || callPhase === "disconnected"
+                  ? "danger"
+                  : "neutral"
           }
+        />
+        <StatusRow
+          icon={isAudioOn ? <Volume2 /> : <VolumeX />}
+          title="Call audio"
+          value={isCallActive ? `Speaker ${isAudioOn ? "on" : "off"}` : "Ready"}
+          tone={isAudioOn ? "success" : "neutral"}
         />
       </section>
 
       {callStatus && (
-        <p
-          className="text-sm text-muted-foreground"
+        <div
+          className={`flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${
+            callPhase === "failed" || callPhase === "disconnected"
+              ? "border-destructive/30 bg-destructive/10 text-destructive"
+              : callPhase === "active"
+                ? "border-success/30 bg-success/10 text-success"
+                : callPhase === "incoming"
+                  ? "border-warning/35 bg-warning/10 text-warning"
+                  : "border-border bg-card text-muted-foreground"
+          }`}
           role="status"
           aria-live="polite"
           aria-atomic="true"
         >
-          {callStatus}
-        </p>
-      )}
-      {remoteParty && (
-        <p className="text-sm text-muted-foreground">
-          {isIncomingCall ? "Caller" : "Other party"}:{" "}
-          <span className="font-medium text-foreground">{remoteParty}</span>
-        </p>
+          <span>{callStatus}</span>
+          {remoteParty && (
+            <span className="font-semibold text-foreground">
+              {isIncomingCall ? "Caller" : "Other party"}: {remoteParty}
+            </span>
+          )}
+        </div>
       )}
 
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border/80 px-5 py-5 sm:px-7">
+        <CardHeader className="border-b border-border bg-muted/55 px-5 py-5 sm:px-7">
           <CardTitle className="text-lg font-semibold tracking-tight">
             Dialer
           </CardTitle>
@@ -645,9 +638,134 @@ export default function HomePage() {
             Enter a number or use the keypad to get started.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-8 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
+        <CardContent className="grid gap-6 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
+          <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/60 p-4 sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-foreground">
+                {isIncomingCall
+                  ? "Incoming call"
+                  : isCallActive
+                    ? "Call in progress"
+                    : isRegistered
+                      ? "Ready to call"
+                      : "Connect your SIP line first"}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {remoteParty || (isRegistered
+                  ? "Enter a number or use the keypad."
+                  : "Calling is available once your extension is registered.")}
+              </p>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 sm:min-w-52">
+              <Button
+                onClick={handleCall}
+                variant={hasCallInProgress && !isIncomingCall ? "destructive" : "success"}
+                className="h-14 w-full rounded-full text-base shadow-md"
+                disabled={
+                  callPhase === "answering" ||
+                  callPhase === "ending" ||
+                  (!isIncomingCall && !hasCallInProgress && !isRegistered)
+                }
+                aria-label={
+                  isIncomingCall
+                    ? "Answer call"
+                    : hasCallInProgress
+                      ? "End call"
+                      : "Call"
+                }
+              >
+                {isIncomingCall ? (
+                  <>
+                    <Phone className="size-5" />
+                    Answer call
+                  </>
+                ) : callPhase === "answering" ? (
+                  <>
+                    <Phone className="size-5" />
+                    Answering…
+                  </>
+                ) : callPhase === "ending" ? (
+                  <>
+                    <PhoneOff className="size-5" />
+                    Ending call…
+                  </>
+                ) : hasCallInProgress ? (
+                  <>
+                    <PhoneOff className="size-5" />
+                    End call
+                  </>
+                ) : (
+                  <>
+                    <Phone className="size-5" />
+                    Call
+                  </>
+                )}
+              </Button>
+              {isIncomingCall && (
+                <Button
+                  onClick={handleDecline}
+                  variant="destructive"
+                  className="w-full rounded-full"
+                  aria-label="Decline call"
+                >
+                  Decline
+                </Button>
+              )}
+              {audioPlaybackBlocked && (
+                <Button
+                  onClick={handleEnableAudio}
+                  variant="secondary"
+                  className="w-full"
+                >
+                  Enable call audio
+                </Button>
+              )}
+              {isCallActive && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={handleToggleMute}
+                    variant="outline"
+                    aria-pressed={isMuted}
+                    aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+                  >
+                    {isMuted ? (
+                      <>
+                        <MicOff className="size-4" />
+                        Unmute
+                      </>
+                    ) : (
+                      <>
+                        <Mic className="size-4" />
+                        Mute
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    onClick={handleToggleAudio}
+                    variant="outline"
+                    aria-pressed={isAudioOn}
+                    aria-label={audioButtonLabel}
+                    disabled={!remoteAudioRef.current?.srcObject}
+                  >
+                    {isAudioOn ? (
+                      <>
+                        <Volume2 className="size-4" />
+                        Speaker on
+                      </>
+                    ) : (
+                      <>
+                        <VolumeX className="size-4" />
+                        Speaker off
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="space-y-5">
-            <div className="rounded-xl border border-border bg-background px-4 py-3">
+            <div className="rounded-xl border border-input bg-muted/60 px-4 py-3">
               <label
                 htmlFor="phone-number"
                 className="eyebrow block pb-2 text-left"
@@ -675,16 +793,31 @@ export default function HomePage() {
                 ["7", "PQRS"],
                 ["8", "TUV"],
                 ["9", "WXYZ"],
-                ["*", ""],
+                ["*", "DEL"],
                 ["0", "+"],
-                ["#", ""],
+                ["#", "CLR"],
               ].map(([digit, letters]) => (
                 <Button
                   key={digit}
                   type="button"
                   variant="outline"
-                  onClick={() => handleNumberClick(digit)}
-                  className="h-[4.15rem] flex-col gap-0 rounded-xl border-border bg-card text-lg font-semibold tabular-nums hover:border-primary/40 hover:bg-secondary"
+                  onClick={() => {
+                    if (digit === "*") {
+                      handleBackspace();
+                    } else if (digit === "#") {
+                      handleClear();
+                    } else {
+                      handleNumberClick(digit);
+                    }
+                  }}
+                  aria-label={
+                    digit === "*"
+                      ? "Delete last digit"
+                      : digit === "#"
+                        ? "Clear number"
+                        : `Dial ${digit}`
+                  }
+                  className="h-[4.15rem] flex-col gap-0 rounded-2xl border-border bg-card text-lg font-semibold tabular-nums shadow-sm hover:border-primary/40 hover:bg-secondary"
                 >
                   <span>{digit}</span>
                   {letters && (
@@ -694,20 +827,6 @@ export default function HomePage() {
                   )}
                 </Button>
               ))}
-            </div>
-
-            <div className="flex justify-between">
-              <Button type="button" variant="ghost" onClick={handleClear}>
-                Clear number
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleBackspace}
-                aria-label="Delete last digit"
-              >
-                Delete last digit
-              </Button>
             </div>
           </div>
 
@@ -725,11 +844,9 @@ export default function HomePage() {
                 className={`mt-1 size-2.5 shrink-0 rounded-full ${
                   isRegistered
                     ? "bg-success"
-                    : registrationFailed
+                    : registrationFailed || !websocketConnected
                       ? "bg-destructive"
-                      : websocketConnected
-                        ? "bg-warning"
-                        : "bg-background/45"
+                      : "bg-warning"
                 }`}
               />
               <div>
@@ -740,14 +857,16 @@ export default function HomePage() {
                       ? "Registration failed"
                       : websocketConnected
                         ? "Connecting your line"
-                        : "Waiting for connection"}
+                        : "Disconnected"}
                 </p>
                 <p className="mt-1 text-sm leading-5 text-background/70">
                   {isRegistered
                     ? "Your SIP extension is registered."
                     : registrationFailed
                       ? "Check your extension details with your administrator."
-                      : "Calls become available when your extension is registered."}
+                      : websocketConnected
+                        ? "Calls become available when your extension is registered."
+                        : "Check the SIP endpoint and network, then reload to reconnect."}
                 </p>
               </div>
             </div>
@@ -759,8 +878,8 @@ export default function HomePage() {
               <h3 className="text-sm font-semibold">Connection settings</h3>
               <p className="text-xs leading-5 text-background/70">
                 Enter a hostname or WebSocket URL. The port field sets the
-                connection port. Settings, including the SIP password, stay in
-                this browser profile.
+                connection port. These settings stay in this browser profile;
+                the SIP password uses your extension.
               </p>
               <div className="space-y-1.5">
                 <label
@@ -845,31 +964,9 @@ export default function HomePage() {
                   />
                 </div>
               </div>
-              <div className="space-y-1.5">
-                <label
-                  htmlFor="sip-password"
-                  className="text-xs font-medium text-background/80"
-                >
-                  SIP password
-                </label>
-                <Input
-                  id="sip-password"
-                  type="password"
-                  value={sipConfigDraft.password}
-                  onChange={(event) => {
-                    setSipConfigDraft((current) => ({
-                      ...current,
-                      password: event.target.value,
-                    }));
-                    setSipConfigError(null);
-                    setSipConfigMessage(null);
-                  }}
-                  autoComplete="off"
-                  required
-                  disabled={!isSipConfigReady || hasCallInProgress}
-                  className="h-10 bg-background text-foreground"
-                />
-              </div>
+              <p className="rounded-lg border border-background/15 bg-background/5 px-3 py-2 text-xs leading-5 text-background/80">
+                SIP password is set to the extension above.
+              </p>
               {sipConfigError && (
                 <p
                   className="rounded-md bg-destructive px-3 py-2 text-sm text-destructive-foreground"
@@ -897,115 +994,6 @@ export default function HomePage() {
                 Save and reconnect
               </Button>
             </form>
-
-            <div className="mt-auto space-y-3 pt-8">
-              <Button
-                onClick={handleCall}
-                variant={hasCallInProgress && !isIncomingCall ? "destructive" : "default"}
-                className="h-12 w-full rounded-xl text-base"
-                disabled={
-                  callPhase === "answering" ||
-                  callPhase === "ending" ||
-                  (!isIncomingCall && !hasCallInProgress && !isRegistered)
-                }
-                aria-label={
-                  isIncomingCall
-                    ? "Answer call"
-                    : hasCallInProgress
-                      ? "End call"
-                      : "Call"
-                }
-              >
-                {isIncomingCall ? (
-                  <>
-                    <Phone className="size-5" />
-                    Answer call
-                  </>
-                ) : callPhase === "answering" ? (
-                  <>
-                    <Phone className="size-5" />
-                    Answering…
-                  </>
-                ) : callPhase === "ending" ? (
-                  <>
-                    <PhoneOff className="size-5" />
-                    Ending call…
-                  </>
-                ) : hasCallInProgress ? (
-                  <>
-                    <PhoneOff className="size-5" />
-                    End call
-                  </>
-                ) : (
-                  <>
-                    <Phone className="size-5" />
-                    Call
-                  </>
-                )}
-              </Button>
-              {isIncomingCall && (
-                <Button
-                  onClick={handleDecline}
-                  variant="outline"
-                  className="w-full border-background/30 bg-transparent text-background hover:bg-background/10"
-                  aria-label="Decline call"
-                >
-                  Decline
-                </Button>
-              )}
-              {audioPlaybackBlocked && (
-                <Button
-                  onClick={handleEnableAudio}
-                  variant="secondary"
-                  className="w-full"
-                >
-                  Enable call audio
-                </Button>
-              )}
-              {isCallActive && (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    onClick={handleToggleMute}
-                    variant="outline"
-                    className="border-background/30 bg-transparent text-background hover:bg-background/10"
-                    aria-pressed={isMuted}
-                    aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
-                  >
-                    {isMuted ? (
-                      <>
-                        <MicOff className="size-4" />
-                        Unmute
-                      </>
-                    ) : (
-                      <>
-                        <Mic className="size-4" />
-                        Mute
-                      </>
-                    )}
-                  </Button>
-                  <Button
-                    onClick={handleToggleAudio}
-                    variant="outline"
-                    className="border-background/30 bg-transparent text-background hover:bg-background/10"
-                    aria-pressed={isAudioOn}
-                    aria-label={audioButtonLabel}
-                    disabled={!remoteAudioRef.current?.srcObject}
-                  >
-                    {isAudioOn ? (
-                      <>
-                        <Volume2 className="size-4" />
-                        Speaker on
-                      </>
-                    ) : (
-                      <>
-                        <VolumeX className="size-4" />
-                        Speaker off
-                      </>
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
           </div>
         </CardContent>
       </Card>
@@ -1222,16 +1210,30 @@ function setupCallLifecycle(
 
 import type { ReactNode } from "react";
 
-interface StatusRowProps { icon: ReactNode; label: string }
-function StatusRow({ icon, label }: StatusRowProps) {
+interface StatusRowProps {
+  icon: ReactNode;
+  title: string;
+  value: string;
+  tone: "success" | "danger" | "warning" | "neutral";
+}
+
+function StatusRow({ icon, title, value, tone }: StatusRowProps) {
+  const toneStyles = {
+    success: "bg-success/10 text-success",
+    danger: "bg-destructive/10 text-destructive",
+    warning: "bg-warning/15 text-warning",
+    neutral: "bg-secondary text-muted-foreground",
+  }[tone];
+
   return (
-    <div className="flex items-center gap-3 bg-card px-4 py-3.5">
-      <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-secondary">
+    <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm">
+      <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${toneStyles}`}>
         {icon}
       </div>
-      <span className="min-w-0 text-sm font-medium capitalize text-foreground">
-        {label}
-      </span>
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+      </div>
     </div>
   );
 }

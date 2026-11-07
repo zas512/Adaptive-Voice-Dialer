@@ -10,7 +10,7 @@ const Table = React.forwardRef<
   <section
     aria-label="Scrollable data table"
     tabIndex={0}
-    className="relative w-full max-w-full overflow-x-auto overscroll-x-contain focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    className="relative w-full max-w-full overflow-x-auto overscroll-x-contain rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
   >
     <table
       ref={ref}
@@ -63,7 +63,7 @@ const TableRow = React.forwardRef<
   <tr
     ref={ref}
     className={cn(
-      "border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted",
+      "border-b border-border/70 transition-colors hover:bg-muted/70 data-[state=selected]:bg-muted",
       className
     )}
     {...props}
@@ -78,7 +78,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-11 bg-muted/70 px-4 text-left align-middle text-xs font-semibold tracking-wide text-muted-foreground [&:has([role=checkbox])]:pr-0",
+      "h-12 bg-secondary/75 px-4 text-left align-middle text-xs font-semibold tracking-wide text-secondary-foreground [&:has([role=checkbox])]:pr-0",
       className
     )}
     {...props}
@@ -92,7 +92,7 @@ const TableCell = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <td
     ref={ref}
-    className={cn("p-4 align-middle [&:has([role=checkbox])]:pr-0", className)}
+    className={cn("p-4 align-middle tabular-nums [&:has([role=checkbox])]:pr-0", className)}
     {...props}
   />
 ))

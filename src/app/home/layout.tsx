@@ -47,9 +47,9 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
       <div className="mx-auto flex min-h-svh max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:gap-0 lg:px-0 lg:py-0">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col lg:px-8">
-          <header className="flex min-h-[76px] items-center justify-between gap-3 border-b border-border/80 py-3">
+          <header className="flex min-h-[84px] items-center justify-between gap-3 border-b border-border/80 py-4">
             <div className="min-w-0">
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground">
                 {activeTitle}
               </h1>
               <p className="mt-0.5 hidden text-xs text-muted-foreground sm:block">
@@ -71,8 +71,8 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
               </Button>
             </div>
           </header>
-          <main className={cn("min-w-0 flex-1 py-6 sm:py-8", className)}>
-            <div className="mx-auto w-full max-w-6xl space-y-7">{children}</div>
+          <main className={cn("min-w-0 flex-1 py-7 sm:py-9", className)}>
+            <div className="mx-auto w-full max-w-6xl space-y-8">{children}</div>
           </main>
         </div>
       </div>
