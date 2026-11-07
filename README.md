@@ -69,15 +69,11 @@ timestamps, and connected duration in MongoDB. The user ID is taken from the
 authenticated session rather than the request body. `GET /api/user/call-logs`
 returns the latest 100 logs for that user.
 
-## Profile and KYC records
+## Profile
 
 `GET /api/user/profile` returns the authenticated user's profile without the SIP
 secret. `PATCH /api/user/profile` updates the profile name and direct number;
 email and SIP provisioning remain administrator-managed.
-
-`GET`, `POST`, and `PATCH /api/user/kyc` list, create, and review client records
-for the authenticated user. Records are scoped to that user, and review status
-can be `pending-review`, `verified`, or `requires-action`.
 
 ## Learn More
 

@@ -17,7 +17,6 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     "/home": "Dialer",
     "/home/call-logs": "Call Logs",
     "/home/settings": "Settings",
-    "/home/kyc": "KYC Management",
     "/home/admin/users": "User Administration",
   };
 
@@ -25,7 +24,6 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     "/home": "Your live connection and calling controls",
     "/home/call-logs": "Recent inbound and outbound activity",
     "/home/settings": "Your profile and account preferences",
-    "/home/kyc": "Client records and review status",
     "/home/admin/users": "Accounts, roles, and SIP provisioning",
   };
 

@@ -1,0 +1,617 @@
+"use client";
+import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
+import { setupCallLifecycle } from "@/app/home/lib/call-lifecycle";
+import { useProtectedRoute } from "@/hooks/use-protected-route";
+import type { CallPhase, SipConfig } from "@/types/app";
+import type { UA } from "jssip";
+import { type FormEvent, useEffect, useRef, useState } from "react";
+
+const SIP_CONFIG_STORAGE_PREFIX = "react-dialer.sip-config.";
+const ACTIVE_CALL_PHASES: CallPhase[] = [
+  "incoming",
+  "answering",
+  "dialing",
+  "ringing",
+  "connecting",
+  "active",
+  "ending",
+];
+
+function getDefaultSipConfig(user: {
+  extensionId?: string;
+  host?: string;
+  port?: number;
+}): SipConfig {
+  return {
+    url: user.host ?? "",
+    port: user.port ? String(user.port) : "",
+    extension: user.extensionId ?? "",
+  };
+}
+
+function getStoredSipConfig(userId: string): SipConfig | null {
+  const stored = window.localStorage.getItem(
+    `${SIP_CONFIG_STORAGE_PREFIX}${userId}`,
+  );
+  if (!stored) return null;
+
+  const value: unknown = JSON.parse(stored);
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    !("url" in value) ||
+    !("port" in value) ||
+    !("extension" in value)
+  ) {
+    throw new Error("Saved SIP settings are not valid.");
+  }
+
+  if (
+    typeof value.url !== "string" ||
+    typeof value.port !== "string" ||
+    typeof value.extension !== "string"
+  ) {
+    throw new Error("Saved SIP settings are incomplete.");
+  }
+
+  return {
+    url: value.url,
+    port: value.port,
+    extension: value.extension,
+  };
+}
+
+export function useDialer() {
+  const { user, isLoading: authLoading, isAuthenticated } = useProtectedRoute();
+  const [sipConfig, setSipConfig] = useState<SipConfig>({
+    url: "",
+    port: "",
+    extension: "",
+  });
+  const [sipConfigDraft, setSipConfigDraft] = useState<SipConfig>({
+    url: "",
+    port: "",
+    extension: "",
+  });
+  const [configuredUserId, setConfiguredUserId] = useState<string | null>(null);
+  const [sipConfigError, setSipConfigError] = useState<string | null>(null);
+  const [sipConfigMessage, setSipConfigMessage] = useState<string | null>(null);
+  const [sipConfigRevision, setSipConfigRevision] = useState(0);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [callStatus, setCallStatus] = useState("Connecting…");
+  const [websocketConnected, setWebsocketConnected] = useState(false);
+  const [isRegistered, setIsRegistered] = useState(false);
+  const [registrationFailed, setRegistrationFailed] = useState(false);
+  const [callPhase, setCallPhase] = useState<CallPhase>("idle");
+  const [remoteParty, setRemoteParty] = useState("");
+  const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isAudioOn, setIsAudioOn] = useState(false);
+
+  const uaRef = useRef<UA | null>(null);
+  const sipExtensionRef = useRef("");
+  const currentCallRef = useRef<RTCSession | null>(null);
+  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const sipManagerRef = useRef<SipSessionManager | null>(null);
+  const incomingAnswerRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const isSipConfigReady = Boolean(user?.id && configuredUserId === user.id);
+  const isIncomingCall = callPhase === "incoming";
+  const isCallActive = callPhase === "active";
+  const hasCallInProgress = ACTIVE_CALL_PHASES.includes(callPhase);
+
+  const statusLabel = {
+    idle: "Idle",
+    incoming: "Incoming call",
+    answering: "Answering",
+    dialing: "Calling",
+    ringing: "Ringing",
+    connecting: "Connecting call",
+    active: "In call",
+    ending: "Ending call",
+    ended: "Call ended",
+    failed: "Call failed",
+    disconnected: "Disconnected",
+  }[callPhase];
+  const audioButtonLabel = isAudioOn ? "Turn speaker off" : "Turn speaker on";
+
+  useEffect(() => {
+    if (!isIncomingCall) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    incomingAnswerRef.current?.focus();
+
+    return () => {
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+    };
+  }, [isIncomingCall]);
+
+  // --- Call control handlers ---
+
+  const handleCall = () => {
+    const activeCall = currentCallRef.current;
+
+    if (activeCall && isIncomingCall) {
+      try {
+        setCallPhase("answering");
+        setCallStatus("Answering incoming call…");
+        activeCall.answer({
+          mediaConstraints: {
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+            video: false,
+          },
+        });
+        setCallStatus("Answering call…");
+      } catch (error) {
+        console.error("[sip] Could not answer the call.", error);
+        setCallPhase("incoming");
+        setCallStatus("Could not answer the call.");
+      }
+      return;
+    }
+
+    if (activeCall) {
+      setCallPhase("ending");
+      setCallStatus("Ending call…");
+      activeCall.terminate();
+      return;
+    }
+
+    if (!phoneNumber.trim()) {
+      setCallStatus("Enter a phone number to call.");
+      return;
+    }
+
+    if (!uaRef.current || !isRegistered) {
+      setCallStatus(
+        "Not registered. Wait for SIP registration before calling.",
+      );
+      return;
+    }
+
+    setCallPhase("dialing");
+    setCallStatus("Calling…");
+    try {
+      const target = phoneNumber.trim().replace(/\s/g, "");
+      const dest = `sip:${target}@${sipExtensionRef.current.split("@")[1] || sipExtensionRef.current}`;
+      const call = uaRef.current.call(dest, {
+        mediaConstraints: {
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          },
+          video: false,
+        },
+      });
+      currentCallRef.current = call;
+    } catch (error) {
+      console.error("[sip] Could not start the call.", error);
+      currentCallRef.current = null;
+      setCallPhase("failed");
+      setCallStatus("Could not start the call. Check microphone permissions.");
+    }
+  };
+
+  const handleDecline = () => {
+    const incomingCall = currentCallRef.current;
+    if (!incomingCall || !isIncomingCall) return;
+
+    setCallPhase("ending");
+    setCallStatus("Declining incoming call…");
+    incomingCall.terminate({
+      status_code: 486,
+      reason_phrase: "Busy Here",
+    });
+  };
+
+  const handleIncomingDialogKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>,
+  ) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleDecline();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      "button:not([disabled])",
+    );
+    const first = focusable.item(0);
+    const last = focusable.item(focusable.length - 1);
+    if (!first || !last) {
+      event.preventDefault();
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  const handleToggleMute = () => {
+    const activeCall = currentCallRef.current;
+    if (!activeCall || !isCallActive) return;
+
+    try {
+      if (isMuted) {
+        activeCall.unmute({ audio: true });
+      } else {
+        activeCall.mute({ audio: true });
+      }
+      setIsMuted(!isMuted);
+    } catch (error) {
+      console.error("[media] Could not change microphone mute state.", error);
+      setCallStatus(
+        `Could not ${isMuted ? "unmute" : "mute"} the microphone. Try again.`,
+      );
+    }
+  };
+
+  const handleEnableAudio = () => {
+    const audio = remoteAudioRef.current;
+    if (!audio?.srcObject) {
+      setCallStatus(
+        "Call audio is not available yet. Wait for the call to connect.",
+      );
+      return;
+    }
+    audio.muted = false;
+    void audio.play().then(
+      () => {
+        setAudioPlaybackBlocked(false);
+        setIsAudioOn(true);
+      },
+      (error: unknown) => {
+        console.error("[media] Could not start remote audio playback.", error);
+        setAudioPlaybackBlocked(true);
+      },
+    );
+  };
+
+  const handleToggleAudio = () => {
+    const audio = remoteAudioRef.current;
+    if (!audio?.srcObject) {
+      setCallStatus(
+        "Remote audio is not available yet. Wait for the call to connect.",
+      );
+      return;
+    }
+
+    const nextAudioOn = !isAudioOn;
+    audio.muted = !nextAudioOn;
+    if (!nextAudioOn) {
+      setIsAudioOn(false);
+      return;
+    }
+
+    void audio.play().then(
+      () => {
+        setAudioPlaybackBlocked(false);
+        setIsAudioOn(true);
+      },
+      (error: unknown) => {
+        console.error("[media] Could not start remote audio playback.", error);
+        audio.muted = true;
+        setIsAudioOn(false);
+        setAudioPlaybackBlocked(true);
+      },
+    );
+  };
+
+  const handleNumberClick = (num: string) => {
+    setPhoneNumber((prev) => prev + num);
+  };
+
+  const handleClear = () => {
+    setPhoneNumber("");
+  };
+
+  const handleBackspace = () => {
+    setPhoneNumber((prev) => prev.slice(0, -1));
+  };
+
+  const handleSaveSipConfig = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setSipConfigError(null);
+    setSipConfigMessage(null);
+
+    if (!user?.id) {
+      setSipConfigError("Sign in again before saving SIP settings.");
+      return;
+    }
+
+    const nextConfig = {
+      url: sipConfigDraft.url.trim(),
+      port: sipConfigDraft.port.trim(),
+      extension: sipConfigDraft.extension.trim(),
+    };
+    const port = Number(nextConfig.port);
+
+    if (!nextConfig.url) {
+      setSipConfigError("Enter a SIP server URL.");
+      return;
+    }
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      setSipConfigError("Enter a port between 1 and 65535.");
+      return;
+    }
+    if (!nextConfig.extension) {
+      setSipConfigError("Enter your SIP extension.");
+      return;
+    }
+    let parsedUrl: URL;
+    try {
+      const inputUrl = /^[a-z][a-z\d+.-]*:\/\//i.test(nextConfig.url)
+        ? nextConfig.url
+        : `https://${nextConfig.url}`;
+      parsedUrl = new URL(inputUrl);
+    } catch {
+      setSipConfigError("Enter a valid server URL.");
+      return;
+    }
+    if (
+      !["http:", "https:", "ws:", "wss:"].includes(parsedUrl.protocol) ||
+      !parsedUrl.hostname ||
+      parsedUrl.username ||
+      parsedUrl.password
+    ) {
+      setSipConfigError("Enter a valid server URL without credentials.");
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(
+        `${SIP_CONFIG_STORAGE_PREFIX}${user.id}`,
+        JSON.stringify(nextConfig),
+      );
+    } catch (error: unknown) {
+      console.error("[sip] Could not save local SIP settings.", error);
+      setSipConfigError("Could not save SIP settings in this browser.");
+      return;
+    }
+
+    setSipConfig(nextConfig);
+    setSipConfigDraft(nextConfig);
+    setWebsocketConnected(false);
+    setIsRegistered(false);
+    setRegistrationFailed(false);
+    setSipConfigRevision((revision) => revision + 1);
+    setSipConfigMessage("Settings saved locally. Reconnecting to SIP…");
+    setCallStatus("Connecting with the updated SIP settings.");
+  };
+
+  // --- Lifecycle effect ---
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const defaults = getDefaultSipConfig(user);
+    try {
+      const storedConfig = getStoredSipConfig(user.id);
+      const config = storedConfig ?? defaults;
+      setSipConfig(config);
+      setSipConfigDraft(config);
+      setSipConfigError(null);
+    } catch (error: unknown) {
+      console.error("[sip] Could not read local SIP settings.", error);
+      setSipConfig(defaults);
+      setSipConfigDraft(defaults);
+      setSipConfigError(
+        "Saved SIP settings could not be read. Review the values and save again.",
+      );
+    }
+    setConfiguredUserId(user.id);
+  }, [user?.extensionId, user?.host, user?.id, user?.port]);
+
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || !user?.id || !isSipConfigReady) {
+      return;
+    }
+
+    const userId = user.id;
+    let disposed = false;
+    const sipProfile = {
+      extensionId: sipConfig.extension,
+      url: sipConfig.url,
+      port: Number(sipConfig.port),
+      secret: sipConfig.extension,
+      name: user?.name,
+    };
+
+    const manager = new SipSessionManager(
+      sipProfile,
+      {
+        onConnected: () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setRegistrationFailed(false);
+          setCallStatus("WebSocket connected. Waiting for SIP registration.");
+        },
+        onDisconnected: () => {
+          if (disposed) return;
+          setWebsocketConnected(false);
+          setIsRegistered(false);
+          setRegistrationFailed(false);
+          const activeSession = currentCallRef.current;
+          currentCallRef.current = null;
+          activeSession?.terminate();
+          setCallPhase("disconnected");
+          setRemoteParty("");
+          const audio = remoteAudioRef.current;
+          if (audio) {
+            audio.pause();
+            audio.srcObject = null;
+          }
+          setAudioPlaybackBlocked(false);
+          setIsAudioOn(false);
+          setIsMuted(false);
+          setCallStatus(
+            "SIP WebSocket disconnected. Check the endpoint and network, then reload to reconnect.",
+          );
+        },
+        onRegistered: () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setIsRegistered(true);
+          setRegistrationFailed(false);
+          setCallStatus("Registered and ready.");
+          if (sipConfigRevision > 0) {
+            setSipConfigMessage("Settings saved locally. SIP line registered.");
+          }
+        },
+        onRegistrationFailed: () => {
+          if (disposed) return;
+          setIsRegistered(false);
+          setRegistrationFailed(true);
+          if (sipConfigRevision > 0) {
+            setSipConfigMessage(
+              "Settings are saved locally, but registration failed.",
+            );
+          }
+          setCallStatus(
+            "SIP registration failed. Check your extension, SIP secret, and WebSocket endpoint with your administrator.",
+          );
+        },
+        onNewRTCSession: (session: RTCSession) => {
+          if (disposed) {
+            session.terminate({
+              status_code: 480,
+              reason_phrase: "Temporarily Unavailable",
+            });
+            return;
+          }
+
+          const incoming = session.direction === "incoming";
+          const remoteNumber =
+            session.remote_identity.uri.user?.trim() || "Unknown caller";
+
+          // Ignore additional concurrent calls
+          const existingCall = currentCallRef.current;
+          if (
+            existingCall &&
+            existingCall !== session &&
+            !existingCall.isEnded()
+          ) {
+            console.warn(
+              "[call] Ignoring additional call while another is active.",
+              {
+                sessionId: session.id,
+                direction: session.direction,
+                remoteNumber,
+              },
+            );
+            session.terminate({
+              status_code: 486,
+              reason_phrase: "Busy Here",
+            });
+            return;
+          }
+
+          currentCallRef.current = session;
+          setRemoteParty(remoteNumber);
+          setCallPhase(incoming ? "incoming" : "dialing");
+          setCallStatus(
+            incoming
+              ? `Incoming call from ${remoteNumber}. Answer or decline.`
+              : `Calling ${remoteNumber}…`,
+          );
+          const disposeRef = () => disposed;
+          setupCallLifecycle(
+            session,
+            incoming,
+            remoteNumber,
+            userId,
+            {
+              currentCallRef,
+              remoteAudioRef,
+              setCallPhase,
+              setCallStatus,
+              setAudioPlaybackBlocked,
+              setIsAudioOn,
+              setIsMuted,
+            },
+            disposeRef,
+          );
+        },
+      },
+      sipExtensionRef,
+    );
+
+    sipManagerRef.current = manager;
+    manager.connect();
+    uaRef.current = manager.getUA();
+
+    return () => {
+      disposed = true;
+      sipManagerRef.current?.stop();
+      currentCallRef.current?.terminate();
+      currentCallRef.current = null;
+      uaRef.current = null;
+      sipExtensionRef.current = "";
+    };
+  }, [
+    authLoading,
+    isAuthenticated,
+    isSipConfigReady,
+    sipConfig.extension,
+    sipConfig.port,
+    sipConfig.url,
+    user?.id,
+    user?.name,
+    user?.secret,
+    sipConfigRevision,
+  ]);
+
+  return {
+    remoteAudioRef,
+    incomingAnswerRef,
+    isAudioOn,
+    statusLabel,
+    isRegistered,
+    registrationFailed,
+    websocketConnected,
+    isIncomingCall,
+    isCallActive,
+    callPhase,
+    callStatus,
+    remoteParty,
+    hasCallInProgress,
+    handleCall,
+    handleDecline,
+    audioPlaybackBlocked,
+    handleEnableAudio,
+    handleToggleMute,
+    isMuted,
+    handleToggleAudio,
+    audioButtonLabel,
+    phoneNumber,
+    setPhoneNumber,
+    handleBackspace,
+    handleClear,
+    handleNumberClick,
+    sipConfig,
+    handleSaveSipConfig,
+    isSipConfigReady,
+    sipConfigError,
+    sipConfigMessage,
+    sipConfigDraft,
+    setSipConfigDraft,
+    setSipConfigError,
+    setSipConfigMessage,
+    handleIncomingDialogKeyDown,
+  };
+}

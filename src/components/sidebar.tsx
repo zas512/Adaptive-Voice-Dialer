@@ -4,7 +4,6 @@ import {
   LayoutDashboard,
   PhoneCall,
   Settings,
-  ShieldCheck,
   Users,
 } from "lucide-react";
 import Link from "next/link";
@@ -28,11 +27,6 @@ const baseNavItems = [
     title: "Settings",
     href: "/home/settings",
     icon: Settings,
-  },
-  {
-    title: "KYC",
-    href: "/home/kyc",
-    icon: ShieldCheck,
   },
 ];
 
