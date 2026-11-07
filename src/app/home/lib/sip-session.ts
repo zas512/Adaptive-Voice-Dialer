@@ -1,7 +1,8 @@
 "use client";
 import { UA, WebSocketInterface } from "jssip";
+import type { IncomingMessageEvent, OutgoingMessageEvent } from "jssip/lib/UA";
 import type { RTCSession } from "jssip/lib/RTCSession";
-import type { SipHandlers, SipProfile } from "@/types/app";
+import type { AMDMessage, SipHandlers, SipProfile } from "@/types/app";
 
 export type { RTCSession };
 
@@ -62,7 +63,8 @@ export class SipSessionManager {
         : window.location.protocol === "https:"
           ? "wss:"
           : "ws:";
-    const websocketPath = serverUrl.pathname === "/" ? "/ws" : serverUrl.pathname;
+    const websocketPath =
+      serverUrl.pathname === "/" ? "/ws" : serverUrl.pathname;
     const websocketUrl = `${websocketScheme}//${host}:${port}${websocketPath}${serverUrl.search}`;
     const normalizedExtension = extensionId.trim();
     this.extensionRef.current = `${normalizedExtension}@${host}`;
@@ -109,6 +111,40 @@ export class SipSessionManager {
       }
       this.handlers.onNewRTCSession?.(event.session);
     });
+
+    ua.on(
+      "newMessage",
+      (event: IncomingMessageEvent | OutgoingMessageEvent) => {
+        if (
+          this.disposed ||
+          controller.signal.aborted ||
+          event.originator !== "remote"
+        ) {
+          return;
+        }
+
+        const body = event.request.body;
+        if (!body?.includes("AMDSTATUS=")) return;
+
+        const amdStatus = body.match(/AMDSTATUS=([^^\r\n]*)/)?.[1]?.trim();
+        if (!amdStatus) return;
+
+        const amdCause =
+          body.match(/AMDCAUSE=([^^\r\n]*)/)?.[1]?.trim() || null;
+        const fromTag = event.request.from.getParam<unknown>("tag");
+        const toTag = event.request.to.getParam<unknown>("tag");
+        const message: AMDMessage = {
+          callId: event.request.getHeader("Call-ID"),
+          fromTag: typeof fromTag === "string" ? fromTag : null,
+          toTag: typeof toTag === "string" ? toTag : null,
+          remoteParty: event.message.remote_identity.uri.user?.trim() ?? "",
+          amdStatus,
+          amdCause,
+        };
+
+        this.handlers.onAMDMessage?.(message);
+      },
+    );
 
     this.ua = ua;
     ua.start();

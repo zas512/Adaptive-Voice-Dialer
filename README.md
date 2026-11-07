@@ -65,7 +65,9 @@ outside a development environment.
 The dialer saves each SIP call when it ends or fails. `POST /api/user/call-logs`
 stores the bearer-authenticated user's SIP session ID, phone number, inbound/outbound
 type, call state, cancellation reason, hangup originator, start/answer/end
-timestamps, and connected duration in MongoDB. The user ID is taken from the
+timestamps, connected duration, and optional AMD status and cause in MongoDB.
+AMD messages are attached only when their SIP Call-ID/tags and remote party
+match the active call. The user ID is taken from the
 authenticated session rather than the request body. `GET /api/user/call-logs`
 returns the latest 100 logs for that user.
 

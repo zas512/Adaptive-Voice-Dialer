@@ -38,9 +38,7 @@ function parseDate(value: unknown): Date | null {
 export async function GET() {
   try {
     await connectDB();
-    const callLogs = await CallLog.find({})
-      .sort({ endedAt: -1 })
-      .lean();
+    const callLogs = await CallLog.find({}).sort({ endedAt: -1 }).lean();
 
     return NextResponse.json({
       callLogs: callLogs.map((callLog) => ({
@@ -49,6 +47,8 @@ export async function GET() {
         phoneNumber: callLog.phoneNumber,
         callType: callLog.callType,
         callState: callLog.callState,
+        amdStatus: callLog.amdStatus ?? null,
+        amdCause: callLog.amdCause ?? null,
         cancelReason: callLog.cancelReason,
         hangupBy: callLog.hangupBy,
         startedAt: callLog.startedAt,
@@ -85,6 +85,8 @@ export async function POST(request: NextRequest) {
       phoneNumber,
       callType,
       callState,
+      amdStatus,
+      amdCause,
       cancelReason,
       hangupBy,
       startedAt,
@@ -99,6 +101,10 @@ export async function POST(request: NextRequest) {
     const validCancelReason =
       cancelReason === null ||
       (typeof cancelReason === "string" && cancelReason.length <= 500);
+    const validAMDValue = (value: unknown) =>
+      value === undefined ||
+      value === null ||
+      (typeof value === "string" && value.length <= 100);
 
     if (
       typeof userId !== "string" ||
@@ -111,6 +117,8 @@ export async function POST(request: NextRequest) {
       phoneNumber.length > 100 ||
       !isCallType(callType) ||
       !isCallState(callState) ||
+      !validAMDValue(amdStatus) ||
+      !validAMDValue(amdCause) ||
       !validCancelReason ||
       (hangupBy !== null && !isHangupOriginator(hangupBy)) ||
       !parsedStartedAt ||
@@ -135,6 +143,9 @@ export async function POST(request: NextRequest) {
       phoneNumber: phoneNumber.trim(),
       callType,
       callState,
+      amdStatus:
+        typeof amdStatus === "string" ? amdStatus.trim() || null : null,
+      amdCause: typeof amdCause === "string" ? amdCause.trim() || null : null,
       cancelReason:
         typeof cancelReason === "string" ? cancelReason.trim() || null : null,
       hangupBy: hangupBy ?? null,
@@ -152,6 +163,8 @@ export async function POST(request: NextRequest) {
           phoneNumber: callLog.phoneNumber,
           callType: callLog.callType,
           callState: callLog.callState,
+          amdStatus: callLog.amdStatus,
+          amdCause: callLog.amdCause,
           cancelReason: callLog.cancelReason,
           hangupBy: callLog.hangupBy,
           startedAt: callLog.startedAt,

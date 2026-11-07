@@ -1,4 +1,5 @@
 import type { CallPhase } from "@/types/app";
+import type { AMDResult } from "@/types/app";
 import type { EndEvent } from "jssip/lib/RTCSession";
 import type { RTCSession } from "jssip/lib/RTCSession";
 
@@ -11,6 +12,7 @@ export function setupCallLifecycle(
   refs: {
     currentCallRef: React.MutableRefObject<RTCSession | null>;
     remoteAudioRef: React.MutableRefObject<HTMLAudioElement | null>;
+    getAMDResult: () => AMDResult | null;
     setCallPhase: (phase: CallPhase) => void;
     setCallStatus: (status: string) => void;
     setAudioPlaybackBlocked: (next: boolean) => void;
@@ -121,6 +123,7 @@ export function setupCallLifecycle(
     if (finalized) return;
     finalized = true;
     const endedAt = new Date();
+    const amdResult = refs.getAMDResult();
     const wasMissed = isMissedCall(event);
     const callState = wasMissed
       ? "missed"
@@ -137,6 +140,8 @@ export function setupCallLifecycle(
       phoneNumber: remoteNumber,
       callType: incoming ? "inbound" : "outbound",
       callState,
+      amdStatus: amdResult?.amdStatus ?? null,
+      amdCause: amdResult?.amdCause ?? null,
       cancelReason: callState === "completed" ? null : event.cause || null,
       hangupBy: event.originator,
       startedAt: startedAt.toISOString(),

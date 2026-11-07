@@ -1,8 +1,8 @@
 "use client";
-import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
 import { setupCallLifecycle } from "@/app/home/lib/call-lifecycle";
+import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
-import type { CallPhase, SipConfig } from "@/types/app";
+import type { AMDResult, CallPhase, SipConfig } from "@/types/app";
 import type { UA } from "jssip";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 
@@ -52,7 +52,7 @@ function getStoredSipConfig(userId: string): SipConfig | null {
     typeof value.port !== "string" ||
     typeof value.extension !== "string"
   ) {
-    throw new Error("Saved SIP settings are incomplete.");
+    throw new TypeError("Saved SIP settings are incomplete.");
   }
 
   return {
@@ -86,13 +86,16 @@ export function useDialer() {
   const [callPhase, setCallPhase] = useState<CallPhase>("idle");
   const [remoteParty, setRemoteParty] = useState("");
   const [audioPlaybackBlocked, setAudioPlaybackBlocked] = useState(false);
+  const [incomingRingtoneBlocked, setIncomingRingtoneBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
 
   const uaRef = useRef<UA | null>(null);
   const sipExtensionRef = useRef("");
   const currentCallRef = useRef<RTCSession | null>(null);
+  const amdResultsRef = useRef(new WeakMap<RTCSession, AMDResult>());
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+  const incomingRingtoneRef = useRef<HTMLAudioElement | null>(null);
   const sipManagerRef = useRef<SipSessionManager | null>(null);
   const incomingAnswerRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -130,6 +133,62 @@ export function useDialer() {
       previousFocusRef.current = null;
     };
   }, [isIncomingCall]);
+
+  useEffect(() => {
+    const ringtone = new Audio("/incoming.mp3");
+    ringtone.preload = "auto";
+    ringtone.loop = true;
+    incomingRingtoneRef.current = ringtone;
+
+    return () => {
+      ringtone.pause();
+      ringtone.currentTime = 0;
+      incomingRingtoneRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const ringtone = incomingRingtoneRef.current;
+    if (!isIncomingCall || !ringtone) {
+      setIncomingRingtoneBlocked(false);
+      return;
+    }
+
+    let active = true;
+    ringtone.currentTime = 0;
+    void ringtone.play().then(
+      () => {
+        if (active) setIncomingRingtoneBlocked(false);
+      },
+      (error: unknown) => {
+        if (!active) return;
+        console.warn(
+          "[media] Browser blocked incoming ringtone playback.",
+          error,
+        );
+        setIncomingRingtoneBlocked(true);
+      },
+    );
+
+    return () => {
+      active = false;
+      ringtone.pause();
+      ringtone.currentTime = 0;
+    };
+  }, [isIncomingCall]);
+
+  const handleEnableIncomingRingtone = () => {
+    const ringtone = incomingRingtoneRef.current;
+    if (!ringtone) return;
+
+    void ringtone.play().then(
+      () => setIncomingRingtoneBlocked(false),
+      (error: unknown) => {
+        console.error("[media] Could not play incoming ringtone.", error);
+        setIncomingRingtoneBlocked(true);
+      },
+    );
+  };
 
   // --- Call control handlers ---
 
@@ -486,6 +545,30 @@ export function useDialer() {
             "SIP registration failed. Check your extension, SIP secret, and WebSocket endpoint with your administrator.",
           );
         },
+        onAMDMessage: (message) => {
+          const session = currentCallRef.current;
+          if (!session || session.isEnded()) return;
+
+          const sessionMatches = [
+            message.fromTag && `${message.callId}${message.fromTag}`,
+            message.toTag && `${message.callId}${message.toTag}`,
+          ].includes(session.id);
+          const remoteParty = session.remote_identity.uri.user?.trim();
+          if (
+            !sessionMatches ||
+            !remoteParty ||
+            remoteParty !== message.remoteParty
+          ) {
+            return;
+          }
+
+          const result = {
+            amdStatus: message.amdStatus,
+            amdCause: message.amdCause,
+          };
+          amdResultsRef.current.set(session, result);
+          console.log("AMD Result:", result);
+        },
         onNewRTCSession: (session: RTCSession) => {
           if (disposed) {
             session.terminate({
@@ -538,6 +621,7 @@ export function useDialer() {
             {
               currentCallRef,
               remoteAudioRef,
+              getAMDResult: () => amdResultsRef.current.get(session) ?? null,
               setCallPhase,
               setCallStatus,
               setAudioPlaybackBlocked,
@@ -578,6 +662,8 @@ export function useDialer() {
 
   return {
     remoteAudioRef,
+    incomingRingtoneBlocked,
+    handleEnableIncomingRingtone,
     incomingAnswerRef,
     isAudioOn,
     statusLabel,

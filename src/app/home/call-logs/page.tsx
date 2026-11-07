@@ -94,6 +94,8 @@ export default function CallLogsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Call State</TableHead>
+                <TableHead>AMD Status</TableHead>
+                <TableHead>AMD Cause</TableHead>
                 <TableHead>Cancel Reason</TableHead>
                 <TableHead>Started At</TableHead>
               </TableRow>
@@ -102,7 +104,7 @@ export default function CallLogsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={9}
                     className="text-center text-muted-foreground"
                   >
                     Loading call logs...
@@ -111,7 +113,7 @@ export default function CallLogsPage() {
               ) : error ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={9}
                     className="text-center text-destructive"
                   >
                     {error}
@@ -120,7 +122,7 @@ export default function CallLogsPage() {
               ) : callLogs.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={7}
+                    colSpan={9}
                     className="text-center text-muted-foreground"
                   >
                     No calls have been logged yet.
@@ -145,6 +147,8 @@ export default function CallLogsPage() {
                         {log.callState}
                       </span>
                     </TableCell>
+                    <TableCell>{log.amdStatus ?? "—"}</TableCell>
+                    <TableCell>{log.amdCause ?? "—"}</TableCell>
                     <TableCell>{log.cancelReason ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(log.startedAt)}

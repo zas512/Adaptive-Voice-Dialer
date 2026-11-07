@@ -46,6 +46,8 @@ export interface CallLog {
   phoneNumber: string;
   callType: "inbound" | "outbound";
   callState: "completed" | "missed" | "cancelled" | "failed";
+  amdStatus?: string | null;
+  amdCause?: string | null;
   cancelReason: string | null;
   startedAt: string;
   durationSeconds: number;
@@ -91,10 +93,23 @@ export type SipProfile = {
   name?: string;
 };
 
+export type AMDResult = {
+  amdStatus: string;
+  amdCause: string | null;
+};
+
+export type AMDMessage = AMDResult & {
+  callId: string;
+  fromTag: string | null;
+  toTag: string | null;
+  remoteParty: string;
+};
+
 export type SipHandlers = {
   onConnected?: () => void;
   onDisconnected?: () => void;
   onRegistered?: () => void;
   onRegistrationFailed?: () => void;
   onNewRTCSession?: (session: RTCSession) => void;
+  onAMDMessage?: (message: AMDMessage) => void;
 };

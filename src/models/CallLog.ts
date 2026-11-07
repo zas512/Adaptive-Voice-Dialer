@@ -14,6 +14,8 @@ export interface ICallLog extends Document {
   phoneNumber: string;
   callType: CallType;
   callState: CallState;
+  amdStatus: string | null;
+  amdCause: string | null;
   cancelReason: string | null;
   hangupBy: "local" | "remote" | "system" | null;
   startedAt: Date;
@@ -50,6 +52,16 @@ const CallLogSchema = new Schema<ICallLog>(
       type: String,
       enum: ["completed", "missed", "cancelled", "failed"],
       required: true,
+    },
+    amdStatus: {
+      type: String,
+      default: null,
+      maxlength: 100,
+    },
+    amdCause: {
+      type: String,
+      default: null,
+      maxlength: 100,
     },
     cancelReason: {
       type: String,
