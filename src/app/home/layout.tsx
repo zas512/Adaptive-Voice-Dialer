@@ -1,15 +1,17 @@
 "use client";
-
-import { LogOut } from "lucide-react";
-import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { clearAuthSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { HomeLayoutProps } from "@/types/app";
+import { LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
-export default function HomeLayout({ children, className }: HomeLayoutProps) {
+export default function HomeLayout({
+  children,
+  className
+}: Readonly<HomeLayoutProps>) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -17,21 +19,21 @@ export default function HomeLayout({ children, className }: HomeLayoutProps) {
     "/home": "Dialer",
     "/home/call-logs": "Call Logs",
     "/home/settings": "Settings",
-    "/home/admin/users": "User Administration",
+    "/home/admin/users": "User Administration"
   };
 
   const descriptionMap: Record<string, string> = {
     "/home": "Your live connection and calling controls",
     "/home/call-logs": "Recent inbound and outbound activity",
     "/home/settings": "Your profile and account preferences",
-    "/home/admin/users": "Accounts, roles, and SIP provisioning",
+    "/home/admin/users": "Accounts, roles, and SIP provisioning"
   };
 
   const activeTitle =
     titleMap[pathname] ??
     titleMap[
       (Object.keys(titleMap) as string[]).find((key) =>
-        pathname.startsWith(key),
+        pathname.startsWith(key)
       ) || "/home"
     ];
 

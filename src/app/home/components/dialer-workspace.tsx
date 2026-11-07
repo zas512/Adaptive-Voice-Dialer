@@ -5,7 +5,7 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { StatusRowProps } from "@/types/app";
@@ -16,13 +16,13 @@ import {
   Phone,
   PhoneOff,
   Volume2,
-  VolumeX,
+  VolumeX
 } from "lucide-react";
 import type { useDialer } from "../hooks/use-dialer";
 
 type DialerController = ReturnType<typeof useDialer>;
 
-export function DialerWorkspace(props: DialerController) {
+export function DialerWorkspace(props: Readonly<DialerController>) {
   const {
     remoteAudioRef,
     incomingAnswerRef,
@@ -59,7 +59,7 @@ export function DialerWorkspace(props: DialerController) {
     setSipConfigDraft,
     setSipConfigError,
     setSipConfigMessage,
-    handleIncomingDialogKeyDown,
+    handleIncomingDialogKeyDown
   } = props;
 
   return (
@@ -77,16 +77,6 @@ export function DialerWorkspace(props: DialerController) {
         srcLang="en"
         className="sr-only"
       />
-
-      <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-          Make a call
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Calls run through your configured SIP extension.
-        </p>
-      </div>
-
       <section
         className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"
         role="status"
@@ -139,40 +129,7 @@ export function DialerWorkspace(props: DialerController) {
           tone={isAudioOn ? "success" : "neutral"}
         />
       </section>
-
-      {callStatus && (
-        <div
-          className={`flex flex-col gap-1 rounded-xl border px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between ${
-            callPhase === "failed" || callPhase === "disconnected"
-              ? "border-destructive/30 bg-destructive/10 text-destructive"
-              : callPhase === "active"
-                ? "border-success/30 bg-success/10 text-success"
-                : callPhase === "incoming"
-                  ? "border-warning/35 bg-warning/10 text-warning"
-                  : "border-border bg-card text-muted-foreground"
-          }`}
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <span>{callStatus}</span>
-          {remoteParty && (
-            <span className="font-semibold text-foreground">
-              {isIncomingCall ? "Caller" : "Other party"}: {remoteParty}
-            </span>
-          )}
-        </div>
-      )}
-
       <Card className="overflow-hidden">
-        <CardHeader className="border-b border-border bg-muted/55 px-5 py-5 sm:px-7">
-          <CardTitle className="text-lg font-semibold tracking-tight">
-            Dialer
-          </CardTitle>
-          <CardDescription>
-            Enter a number or use the keypad to get started.
-          </CardDescription>
-        </CardHeader>
         <CardContent className="grid gap-6 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
           <div className="flex flex-col gap-4 rounded-2xl border border-border bg-muted/60 p-4 sm:flex-row sm:items-center sm:justify-between xl:col-span-2">
             <div className="min-w-0">
@@ -337,7 +294,7 @@ export function DialerWorkspace(props: DialerController) {
                 ["9", "WXYZ"],
                 ["*", "DEL"],
                 ["0", "+"],
-                ["#", "CLR"],
+                ["#", "CLR"]
               ].map(([digit, letters]) => (
                 <Button
                   key={digit}
@@ -436,7 +393,7 @@ export function DialerWorkspace(props: DialerController) {
                   onChange={(event) => {
                     setSipConfigDraft((current) => ({
                       ...current,
-                      url: event.target.value,
+                      url: event.target.value
                     }));
                     setSipConfigError(null);
                     setSipConfigMessage(null);
@@ -468,7 +425,7 @@ export function DialerWorkspace(props: DialerController) {
                     onChange={(event) => {
                       setSipConfigDraft((current) => ({
                         ...current,
-                        port: event.target.value,
+                        port: event.target.value
                       }));
                       setSipConfigError(null);
                       setSipConfigMessage(null);
@@ -492,7 +449,7 @@ export function DialerWorkspace(props: DialerController) {
                     onChange={(event) => {
                       setSipConfigDraft((current) => ({
                         ...current,
-                        extension: event.target.value,
+                        extension: event.target.value
                       }));
                       setSipConfigError(null);
                       setSipConfigMessage(null);
@@ -594,16 +551,16 @@ export function DialerWorkspace(props: DialerController) {
                 {[
                   {
                     label: "Voicemail",
-                    description: "Send the caller to voicemail",
+                    description: "Send the caller to voicemail"
                   },
                   {
                     label: "AI voice",
-                    description: "Answer with an AI voice",
+                    description: "Answer with an AI voice"
                   },
                   {
                     label: "Answering machine",
-                    description: "Play an answering-machine message",
-                  },
+                    description: "Play an answering-machine message"
+                  }
                 ].map((option) => (
                   <Button
                     key={option.label}
@@ -642,7 +599,7 @@ function StatusRow({ icon, title, value, tone }: Readonly<StatusRowProps>) {
     success: "bg-success/10 text-success",
     danger: "bg-destructive/10 text-destructive",
     warning: "bg-warning/15 text-warning",
-    neutral: "bg-secondary text-muted-foreground",
+    neutral: "bg-secondary text-muted-foreground"
   }[tone];
 
   return (
