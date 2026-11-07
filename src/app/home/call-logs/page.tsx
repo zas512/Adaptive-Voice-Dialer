@@ -17,17 +17,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-
-interface CallLog {
-  id: string;
-  sipSessionId: string;
-  phoneNumber: string;
-  callType: "inbound" | "outbound";
-  callState: "completed" | "missed" | "cancelled" | "failed";
-  cancelReason: string | null;
-  startedAt: string;
-  durationSeconds: number;
-}
+import type { CallLog } from "@/types/app";
 
 const statusStyles: Record<CallLog["callState"], string> = {
   completed: "border border-success/25 bg-success/10 text-success",

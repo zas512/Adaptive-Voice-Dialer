@@ -1,24 +1,9 @@
 "use client";
 import { UA, WebSocketInterface } from "jssip";
 import type { RTCSession } from "jssip/lib/RTCSession";
+import type { SipHandlers, SipProfile } from "@/types/app";
 
 export type { RTCSession };
-
-type SipProfile = {
-  extensionId?: string;
-  url?: string;
-  port?: number;
-  secret?: string;
-  name?: string;
-};
-
-type SipHandlers = {
-  onConnected?: () => void;
-  onDisconnected?: () => void;
-  onRegistered?: () => void;
-  onRegistrationFailed?: () => void;
-  onNewRTCSession?: (session: RTCSession) => void;
-};
 
 export class SipSessionManager {
   public extensionRef: { current: string };

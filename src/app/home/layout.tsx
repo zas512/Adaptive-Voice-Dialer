@@ -2,17 +2,12 @@
 
 import { LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import type { ReactNode } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { clearAuthSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-
-interface HomeLayoutProps {
-  children: ReactNode;
-  className?: string;
-}
+import type { HomeLayoutProps } from "@/types/app";
 
 export default function HomeLayout({ children, className }: HomeLayoutProps) {
   const pathname = usePathname();

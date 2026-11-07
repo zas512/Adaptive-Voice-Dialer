@@ -1,32 +1,28 @@
 "use client";
-import type { UA } from "jssip";
-import type { EndEvent } from "jssip/lib/RTCSession";
-import { AlertCircle, Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
 import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
-
-type SipConfig = {
-  url: string;
-  port: string;
-  extension: string;
-};
-
-type CallPhase =
-  | "idle"
-  | "incoming"
-  | "answering"
-  | "dialing"
-  | "ringing"
-  | "connecting"
-  | "active"
-  | "ending"
-  | "ended"
-  | "failed"
-  | "disconnected";
+import type { CallPhase, SipConfig, StatusRowProps } from "@/types/app";
+import type { UA } from "jssip";
+import type { EndEvent } from "jssip/lib/RTCSession";
+import {
+  AlertCircle,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneOff,
+  Volume2,
+  VolumeX
+} from "lucide-react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 
 const SIP_CONFIG_STORAGE_PREFIX = "react-dialer.sip-config.";
 const ACTIVE_CALL_PHASES: CallPhase[] = [
@@ -36,7 +32,7 @@ const ACTIVE_CALL_PHASES: CallPhase[] = [
   "ringing",
   "connecting",
   "active",
-  "ending",
+  "ending"
 ];
 
 function getDefaultSipConfig(user: {
@@ -47,13 +43,13 @@ function getDefaultSipConfig(user: {
   return {
     url: user.host ?? "",
     port: user.port ? String(user.port) : "",
-    extension: user.extensionId ?? "",
+    extension: user.extensionId ?? ""
   };
 }
 
 function getStoredSipConfig(userId: string): SipConfig | null {
   const stored = window.localStorage.getItem(
-    `${SIP_CONFIG_STORAGE_PREFIX}${userId}`,
+    `${SIP_CONFIG_STORAGE_PREFIX}${userId}`
   );
   if (!stored) return null;
 
@@ -80,7 +76,7 @@ function getStoredSipConfig(userId: string): SipConfig | null {
   return {
     url: value.url,
     port: value.port,
-    extension: value.extension,
+    extension: value.extension
   };
 }
 
@@ -89,12 +85,12 @@ export default function HomePage() {
   const [sipConfig, setSipConfig] = useState<SipConfig>({
     url: "",
     port: "",
-    extension: "",
+    extension: ""
   });
   const [sipConfigDraft, setSipConfigDraft] = useState<SipConfig>({
     url: "",
     port: "",
-    extension: "",
+    extension: ""
   });
   const [configuredUserId, setConfiguredUserId] = useState<string | null>(null);
   const [sipConfigError, setSipConfigError] = useState<string | null>(null);
@@ -116,6 +112,8 @@ export default function HomePage() {
   const currentCallRef = useRef<RTCSession | null>(null);
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const sipManagerRef = useRef<SipSessionManager | null>(null);
+  const incomingAnswerRef = useRef<HTMLButtonElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const isSipConfigReady = Boolean(user?.id && configuredUserId === user.id);
   const isIncomingCall = callPhase === "incoming";
   const isCallActive = callPhase === "active";
@@ -132,9 +130,24 @@ export default function HomePage() {
     ending: "Ending call",
     ended: "Call ended",
     failed: "Call failed",
-    disconnected: "Disconnected",
+    disconnected: "Disconnected"
   }[callPhase];
   const audioButtonLabel = isAudioOn ? "Turn speaker off" : "Turn speaker on";
+
+  useEffect(() => {
+    if (!isIncomingCall) return;
+
+    previousFocusRef.current =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    incomingAnswerRef.current?.focus();
+
+    return () => {
+      previousFocusRef.current?.focus();
+      previousFocusRef.current = null;
+    };
+  }, [isIncomingCall]);
 
   // --- Call control handlers ---
 
@@ -147,9 +160,13 @@ export default function HomePage() {
         setCallStatus("Answering incoming call…");
         activeCall.answer({
           mediaConstraints: {
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-            video: false,
-          },
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            video: false
+          }
         });
         setCallStatus("Answering call…");
       } catch (error) {
@@ -173,7 +190,9 @@ export default function HomePage() {
     }
 
     if (!uaRef.current || !isRegistered) {
-      setCallStatus("Not registered. Wait for SIP registration before calling.");
+      setCallStatus(
+        "Not registered. Wait for SIP registration before calling."
+      );
       return;
     }
 
@@ -184,9 +203,13 @@ export default function HomePage() {
       const dest = `sip:${target}@${sipExtensionRef.current.split("@")[1] || sipExtensionRef.current}`;
       const call = uaRef.current.call(dest, {
         mediaConstraints: {
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-        },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        }
       });
       currentCallRef.current = call;
     } catch (error) {
@@ -205,8 +228,36 @@ export default function HomePage() {
     setCallStatus("Declining incoming call…");
     incomingCall.terminate({
       status_code: 486,
-      reason_phrase: "Busy Here",
+      reason_phrase: "Busy Here"
     });
+  };
+
+  const handleIncomingDialogKeyDown = (
+    event: React.KeyboardEvent<HTMLDivElement>
+  ) => {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      handleDecline();
+      return;
+    }
+    if (event.key !== "Tab") return;
+
+    const focusable = event.currentTarget.querySelectorAll<HTMLButtonElement>(
+      "button:not([disabled])"
+    );
+    const first = focusable.item(0);
+    const last = focusable.item(focusable.length - 1);
+    if (!first || !last) {
+      event.preventDefault();
+      return;
+    }
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   };
 
   const handleToggleMute = () => {
@@ -223,7 +274,7 @@ export default function HomePage() {
     } catch (error) {
       console.error("[media] Could not change microphone mute state.", error);
       setCallStatus(
-        `Could not ${isMuted ? "unmute" : "mute"} the microphone. Try again.`,
+        `Could not ${isMuted ? "unmute" : "mute"} the microphone. Try again.`
       );
     }
   };
@@ -231,7 +282,9 @@ export default function HomePage() {
   const handleEnableAudio = () => {
     const audio = remoteAudioRef.current;
     if (!audio?.srcObject) {
-      setCallStatus("Call audio is not available yet. Wait for the call to connect.");
+      setCallStatus(
+        "Call audio is not available yet. Wait for the call to connect."
+      );
       return;
     }
     audio.muted = false;
@@ -243,14 +296,16 @@ export default function HomePage() {
       (error: unknown) => {
         console.error("[media] Could not start remote audio playback.", error);
         setAudioPlaybackBlocked(true);
-      },
+      }
     );
   };
 
   const handleToggleAudio = () => {
     const audio = remoteAudioRef.current;
     if (!audio?.srcObject) {
-      setCallStatus("Remote audio is not available yet. Wait for the call to connect.");
+      setCallStatus(
+        "Remote audio is not available yet. Wait for the call to connect."
+      );
       return;
     }
 
@@ -271,7 +326,7 @@ export default function HomePage() {
         audio.muted = true;
         setIsAudioOn(false);
         setAudioPlaybackBlocked(true);
-      },
+      }
     );
   };
 
@@ -300,7 +355,7 @@ export default function HomePage() {
     const nextConfig = {
       url: sipConfigDraft.url.trim(),
       port: sipConfigDraft.port.trim(),
-      extension: sipConfigDraft.extension.trim(),
+      extension: sipConfigDraft.extension.trim()
     };
     const port = Number(nextConfig.port);
 
@@ -339,7 +394,7 @@ export default function HomePage() {
     try {
       window.localStorage.setItem(
         `${SIP_CONFIG_STORAGE_PREFIX}${user.id}`,
-        JSON.stringify(nextConfig),
+        JSON.stringify(nextConfig)
       );
     } catch (error: unknown) {
       console.error("[sip] Could not save local SIP settings.", error);
@@ -374,19 +429,14 @@ export default function HomePage() {
       setSipConfig(defaults);
       setSipConfigDraft(defaults);
       setSipConfigError(
-        "Saved SIP settings could not be read. Review the values and save again.",
+        "Saved SIP settings could not be read. Review the values and save again."
       );
     }
     setConfiguredUserId(user.id);
   }, [user?.extensionId, user?.host, user?.id, user?.port]);
 
   useEffect(() => {
-    if (
-      authLoading ||
-      !isAuthenticated ||
-      !user?.id ||
-      !isSipConfigReady
-    ) {
+    if (authLoading || !isAuthenticated || !user?.id || !isSipConfigReady) {
       return;
     }
 
@@ -397,106 +447,127 @@ export default function HomePage() {
       url: sipConfig.url,
       port: Number(sipConfig.port),
       secret: sipConfig.extension,
-      name: user?.name,
+      name: user?.name
     };
 
-    const manager = new SipSessionManager(sipProfile, {
-      onConnected: () => {
-        if (disposed) return;
-        setWebsocketConnected(true);
-        setRegistrationFailed(false);
-        setCallStatus("WebSocket connected. Waiting for SIP registration.");
-      },
-      onDisconnected: () => {
-        if (disposed) return;
-        setWebsocketConnected(false);
-        setIsRegistered(false);
-        setRegistrationFailed(false);
-        const activeSession = currentCallRef.current;
-        currentCallRef.current = null;
-        activeSession?.terminate();
-        setCallPhase("disconnected");
-        setRemoteParty("");
-        const audio = remoteAudioRef.current;
-        if (audio) {
-          audio.pause();
-          audio.srcObject = null;
-        }
-        setAudioPlaybackBlocked(false);
-        setIsAudioOn(false);
-        setIsMuted(false);
-        setCallStatus(
-          "SIP WebSocket disconnected. Check the endpoint and network, then reload to reconnect.",
-        );
-      },
-      onRegistered: () => {
-        if (disposed) return;
-        setWebsocketConnected(true);
-        setIsRegistered(true);
-        setRegistrationFailed(false);
-        setCallStatus("Registered and ready.");
-        if (sipConfigRevision > 0) {
-          setSipConfigMessage("Settings saved locally. SIP line registered.");
-        }
-      },
-      onRegistrationFailed: () => {
-        if (disposed) return;
-        setIsRegistered(false);
-        setRegistrationFailed(true);
-        if (sipConfigRevision > 0) {
-          setSipConfigMessage(
-            "Settings are saved locally, but registration failed.",
+    const manager = new SipSessionManager(
+      sipProfile,
+      {
+        onConnected: () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setRegistrationFailed(false);
+          setCallStatus("WebSocket connected. Waiting for SIP registration.");
+        },
+        onDisconnected: () => {
+          if (disposed) return;
+          setWebsocketConnected(false);
+          setIsRegistered(false);
+          setRegistrationFailed(false);
+          const activeSession = currentCallRef.current;
+          currentCallRef.current = null;
+          activeSession?.terminate();
+          setCallPhase("disconnected");
+          setRemoteParty("");
+          const audio = remoteAudioRef.current;
+          if (audio) {
+            audio.pause();
+            audio.srcObject = null;
+          }
+          setAudioPlaybackBlocked(false);
+          setIsAudioOn(false);
+          setIsMuted(false);
+          setCallStatus(
+            "SIP WebSocket disconnected. Check the endpoint and network, then reload to reconnect."
+          );
+        },
+        onRegistered: () => {
+          if (disposed) return;
+          setWebsocketConnected(true);
+          setIsRegistered(true);
+          setRegistrationFailed(false);
+          setCallStatus("Registered and ready.");
+          if (sipConfigRevision > 0) {
+            setSipConfigMessage("Settings saved locally. SIP line registered.");
+          }
+        },
+        onRegistrationFailed: () => {
+          if (disposed) return;
+          setIsRegistered(false);
+          setRegistrationFailed(true);
+          if (sipConfigRevision > 0) {
+            setSipConfigMessage(
+              "Settings are saved locally, but registration failed."
+            );
+          }
+          setCallStatus(
+            "SIP registration failed. Check your extension, SIP secret, and WebSocket endpoint with your administrator."
+          );
+        },
+        onNewRTCSession: (session: RTCSession) => {
+          if (disposed) {
+            session.terminate({
+              status_code: 480,
+              reason_phrase: "Temporarily Unavailable"
+            });
+            return;
+          }
+
+          const incoming = session.direction === "incoming";
+          const remoteNumber =
+            session.remote_identity.uri.user?.trim() || "Unknown caller";
+
+          // Ignore additional concurrent calls
+          const existingCall = currentCallRef.current;
+          if (
+            existingCall &&
+            existingCall !== session &&
+            !existingCall.isEnded()
+          ) {
+            console.warn(
+              "[call] Ignoring additional call while another is active.",
+              {
+                sessionId: session.id,
+                direction: session.direction,
+                remoteNumber
+              }
+            );
+            session.terminate({
+              status_code: 486,
+              reason_phrase: "Busy Here"
+            });
+            return;
+          }
+
+          currentCallRef.current = session;
+          setRemoteParty(remoteNumber);
+          setCallPhase(incoming ? "incoming" : "dialing");
+          setCallStatus(
+            incoming
+              ? `Incoming call from ${remoteNumber}. Answer or decline.`
+              : `Calling ${remoteNumber}…`
+          );
+          const disposeRef = () => disposed;
+          setupCallLifecycle(
+            session,
+            incoming,
+            remoteNumber,
+            userId,
+            {
+              currentCallRef,
+              remoteAudioRef,
+              setCallPhase,
+              setCallStatus,
+              setAudioPlaybackBlocked,
+              setIsAudioOn,
+              setIsMuted
+            },
+            disposeRef
           );
         }
-        setCallStatus(
-          "SIP registration failed. Check your extension, SIP secret, and WebSocket endpoint with your administrator.",
-        );
       },
-      onNewRTCSession: (session: RTCSession) => {
-        if (disposed) {
-          session.terminate({ status_code: 480, reason_phrase: "Temporarily Unavailable" });
-          return;
-        }
-
-        const incoming = session.direction === "incoming";
-        const remoteNumber =
-          session.remote_identity.uri.user?.trim() || "Unknown caller";
-
-        // Ignore additional concurrent calls
-        const existingCall = currentCallRef.current;
-        if (existingCall && existingCall !== session && !existingCall.isEnded()) {
-          console.warn("[call] Ignoring additional call while another is active.", {
-            sessionId: session.id,
-            direction: session.direction,
-            remoteNumber,
-          });
-          session.terminate({
-            status_code: 486,
-            reason_phrase: "Busy Here",
-          });
-          return;
-        }
-
-        currentCallRef.current = session;
-        setRemoteParty(remoteNumber);
-        setCallPhase(incoming ? "incoming" : "dialing");
-        setCallStatus(
-          incoming
-            ? `Incoming call from ${remoteNumber}. Answer or decline.`
-            : `Calling ${remoteNumber}…`,
-        );
-        const disposeRef = () => disposed;
-        setupCallLifecycle(session, incoming, remoteNumber, userId, {
-          currentCallRef,
-          remoteAudioRef,
-          setCallPhase,
-          setCallStatus,
-          setAudioPlaybackBlocked,
-          setIsAudioOn,
-          setIsMuted,
-        }, disposeRef);
-      },
-    }, sipExtensionRef);
+      sipExtensionRef
+    );
 
     sipManagerRef.current = manager;
     manager.connect();
@@ -520,7 +591,7 @@ export default function HomePage() {
     user?.id,
     user?.name,
     user?.secret,
-    sipConfigRevision,
+    sipConfigRevision
   ]);
 
   // --- Render ---
@@ -582,9 +653,7 @@ export default function HomePage() {
           tone={websocketConnected ? "success" : "danger"}
         />
         <StatusRow
-          icon={
-            isIncomingCall || isCallActive ? <Phone /> : <PhoneOff />
-          }
+          icon={isIncomingCall || isCallActive ? <Phone /> : <PhoneOff />}
           title="Call"
           value={statusLabel}
           tone={
@@ -651,15 +720,20 @@ export default function HomePage() {
                       : "Connect your SIP line first"}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {remoteParty || (isRegistered
-                  ? "Enter a number or use the keypad."
-                  : "Calling is available once your extension is registered.")}
+                {remoteParty ||
+                  (isRegistered
+                    ? "Enter a number or use the keypad."
+                    : "Calling is available once your extension is registered.")}
               </p>
             </div>
             <div className="flex shrink-0 flex-col gap-2 sm:min-w-52">
               <Button
                 onClick={handleCall}
-                variant={hasCallInProgress && !isIncomingCall ? "destructive" : "success"}
+                variant={
+                  hasCallInProgress && !isIncomingCall
+                    ? "destructive"
+                    : "success"
+                }
                 className="h-14 w-full rounded-full text-base shadow-md"
                 disabled={
                   callPhase === "answering" ||
@@ -726,7 +800,9 @@ export default function HomePage() {
                     onClick={handleToggleMute}
                     variant="outline"
                     aria-pressed={isMuted}
-                    aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+                    aria-label={
+                      isMuted ? "Unmute microphone" : "Mute microphone"
+                    }
                   >
                     {isMuted ? (
                       <>
@@ -795,7 +871,7 @@ export default function HomePage() {
                 ["9", "WXYZ"],
                 ["*", "DEL"],
                 ["0", "+"],
-                ["#", "CLR"],
+                ["#", "CLR"]
               ].map(([digit, letters]) => (
                 <Button
                   key={digit}
@@ -894,7 +970,7 @@ export default function HomePage() {
                   onChange={(event) => {
                     setSipConfigDraft((current) => ({
                       ...current,
-                      url: event.target.value,
+                      url: event.target.value
                     }));
                     setSipConfigError(null);
                     setSipConfigMessage(null);
@@ -926,7 +1002,7 @@ export default function HomePage() {
                     onChange={(event) => {
                       setSipConfigDraft((current) => ({
                         ...current,
-                        port: event.target.value,
+                        port: event.target.value
                       }));
                       setSipConfigError(null);
                       setSipConfigMessage(null);
@@ -950,7 +1026,7 @@ export default function HomePage() {
                     onChange={(event) => {
                       setSipConfigDraft((current) => ({
                         ...current,
-                        extension: event.target.value,
+                        extension: event.target.value
                       }));
                       setSipConfigError(null);
                       setSipConfigMessage(null);
@@ -997,6 +1073,100 @@ export default function HomePage() {
           </div>
         </CardContent>
       </Card>
+
+      {isIncomingCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-4 backdrop-blur-sm">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="incoming-call-title"
+            aria-describedby="incoming-call-description"
+            onKeyDown={handleIncomingDialogKeyDown}
+            className="w-full max-w-md rounded-2xl border border-border bg-card p-6 text-card-foreground shadow-2xl sm:p-8"
+          >
+            <div className="flex flex-col items-center text-center">
+              <span className="flex size-14 items-center justify-center rounded-full bg-warning/15 text-warning">
+                <Phone className="size-6" aria-hidden="true" />
+              </span>
+              <h2
+                id="incoming-call-title"
+                className="mt-4 text-xl font-semibold tracking-tight"
+              >
+                Incoming call
+              </h2>
+              <p
+                id="incoming-call-description"
+                className="mt-1 text-sm text-muted-foreground"
+              >
+                {remoteParty || "Unknown caller"}
+              </p>
+            </div>
+
+            <div className="mt-6 grid gap-2 sm:grid-cols-2">
+              <Button
+                ref={incomingAnswerRef}
+                onClick={handleCall}
+                variant="success"
+                className="h-12 rounded-full"
+              >
+                <Phone className="size-4" aria-hidden="true" />
+                Answer call
+              </Button>
+              <Button
+                onClick={handleDecline}
+                variant="destructive"
+                className="h-12 rounded-full"
+              >
+                <PhoneOff className="size-4" aria-hidden="true" />
+                Reject
+              </Button>
+            </div>
+
+            <div className="mt-6 border-t border-border pt-5">
+              <p className="text-sm font-semibold">Other response options</p>
+              <div className="mt-3 grid gap-2">
+                {[
+                  {
+                    label: "Voicemail",
+                    description: "Send the caller to voicemail"
+                  },
+                  {
+                    label: "AI voice",
+                    description: "Answer with an AI voice"
+                  },
+                  {
+                    label: "Answering machine",
+                    description: "Play an answering-machine message"
+                  }
+                ].map((option) => (
+                  <Button
+                    key={option.label}
+                    type="button"
+                    variant="outline"
+                    disabled
+                    className="h-auto min-h-14 justify-between rounded-xl px-4 py-2 text-left opacity-70"
+                    aria-label={`${option.label}, coming soon`}
+                  >
+                    <span>
+                      <span className="block">{option.label}</span>
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                        {option.description}
+                      </span>
+                    </span>
+                    <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[0.65rem] font-semibold text-secondary-foreground">
+                      Soon
+                    </span>
+                  </Button>
+                ))}
+              </div>
+              <p className="mt-3 text-xs leading-5 text-muted-foreground">
+                These response options are not available yet. Answer and Reject
+                control the live call.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1019,7 +1189,7 @@ function setupCallLifecycle(
     setIsAudioOn: (next: boolean) => void;
     setIsMuted: (next: boolean) => void;
   },
-  disposeFlag: () => boolean,
+  disposeFlag: () => boolean
 ) {
   const startedAt = new Date();
   let answeredAt: Date | null = null;
@@ -1036,13 +1206,19 @@ function setupCallLifecycle(
     peerConnection.addEventListener("iceconnectionstatechange", () => {
       if (disposeFlag() || refs.currentCallRef.current !== session) return;
       if (peerConnection.iceConnectionState === "failed") {
-        refs.setCallStatus("RTP media connection failed. Check the PBX RTP/ICE network settings.");
+        refs.setCallStatus(
+          "RTP media connection failed. Check the PBX RTP/ICE network settings."
+        );
       }
     });
 
     peerConnection.addEventListener("track", (event) => {
       const audio = refs.remoteAudioRef.current;
-      if (refs.currentCallRef.current !== session || !audio || event.track.kind !== "audio") {
+      if (
+        refs.currentCallRef.current !== session ||
+        !audio ||
+        event.track.kind !== "audio"
+      ) {
         return;
       }
       const remoteStream = event.streams[0] ?? new MediaStream([event.track]);
@@ -1061,22 +1237,27 @@ function setupCallLifecycle(
           console.warn("[media] Browser blocked remote audio playback.", error);
           refs.setAudioPlaybackBlocked(true);
           refs.setIsAudioOn(false);
-        },
+        }
       );
     });
   };
 
   if (incoming) {
     refs.setCallPhase("incoming");
-    refs.setCallStatus(`Incoming call from ${remoteNumber}. Answer or decline.`);
+    refs.setCallStatus(
+      `Incoming call from ${remoteNumber}. Answer or decline.`
+    );
   }
 
   if (session.connection) {
     attachRemoteAudio(session.connection);
   } else {
-    session.on("peerconnection", ({ peerconnection }: { peerconnection: RTCPeerConnection }) => {
-      attachRemoteAudio(peerconnection);
-    });
+    session.on(
+      "peerconnection",
+      ({ peerconnection }: { peerconnection: RTCPeerConnection }) => {
+        attachRemoteAudio(peerconnection);
+      }
+    );
   }
 
   session.on("connecting", () => {
@@ -1088,7 +1269,8 @@ function setupCallLifecycle(
   });
 
   session.on("progress", () => {
-    if (disposeFlag() || refs.currentCallRef.current !== session || incoming) return;
+    if (disposeFlag() || refs.currentCallRef.current !== session || incoming)
+      return;
     refs.setCallPhase("ringing");
     refs.setCallStatus(`${remoteNumber} is ringing…`);
   });
@@ -1133,15 +1315,18 @@ function setupCallLifecycle(
       answeredAt: answeredAt?.toISOString() ?? null,
       endedAt: endedAt.toISOString(),
       durationSeconds: answeredAt
-        ? Math.max(0, Math.floor((endedAt.getTime() - answeredAt.getTime()) / 1000))
-        : 0,
+        ? Math.max(
+            0,
+            Math.floor((endedAt.getTime() - answeredAt.getTime()) / 1000)
+          )
+        : 0
     };
     void fetch("/api/user/call-logs", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
-      keepalive: true,
+      keepalive: true
     }).catch((error: unknown) => {
       console.error("[call] Could not save call log.", error);
     });
@@ -1168,7 +1353,7 @@ function setupCallLifecycle(
       refs.setCallStatus(
         event.originator === "remote"
           ? `${remoteNumber} ended the call.`
-          : "Call ended.",
+          : "Call ended."
       );
     }
   });
@@ -1193,7 +1378,7 @@ function setupCallLifecycle(
         refs.setCallStatus(`Call with ${remoteNumber} canceled.`);
       } else if (event.cause === "User Denied Media Access") {
         refs.setCallStatus(
-          "Microphone access failed. Allow microphone access in your browser and try again.",
+          "Microphone access failed. Allow microphone access in your browser and try again."
         );
       } else {
         refs.setCallStatus(`Call with ${remoteNumber} failed: ${event.cause}.`);
@@ -1208,31 +1393,26 @@ function setupCallLifecycle(
   });
 }
 
-import type { ReactNode } from "react";
-
-interface StatusRowProps {
-  icon: ReactNode;
-  title: string;
-  value: string;
-  tone: "success" | "danger" | "warning" | "neutral";
-}
-
 function StatusRow({ icon, title, value, tone }: StatusRowProps) {
   const toneStyles = {
     success: "bg-success/10 text-success",
     danger: "bg-destructive/10 text-destructive",
     warning: "bg-warning/15 text-warning",
-    neutral: "bg-secondary text-muted-foreground",
+    neutral: "bg-secondary text-muted-foreground"
   }[tone];
 
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3.5 shadow-sm">
-      <div className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${toneStyles}`}>
+      <div
+        className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${toneStyles}`}
+      >
         {icon}
       </div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-muted-foreground">{title}</p>
-        <p className="truncate text-sm font-semibold text-foreground">{value}</p>
+        <p className="truncate text-sm font-semibold text-foreground">
+          {value}
+        </p>
       </div>
     </div>
   );

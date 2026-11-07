@@ -12,19 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-type Profile = {
-  id: string;
-  name: string;
-  email: string;
-  role: "user" | "agent" | "admin";
-  number: string;
-  extensionId: string;
-  host: string;
-  port: number | null;
-  createdAt: string;
-  updatedAt: string;
-};
+import type { Profile } from "@/types/app";
 
 export default function SettingsPage() {
   const [profile, setProfile] = useState<Profile | null>(null);

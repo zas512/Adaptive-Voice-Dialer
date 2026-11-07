@@ -21,33 +21,7 @@ import {
 } from "@/components/ui/table";
 import { useApiMutation, useApiQuery } from "@/hooks/use-api";
 import { useProtectedRouteByRole } from "@/hooks/use-protected-route";
-
-type AdminUser = {
-  id: string;
-  name: string;
-  email: string;
-  role: "user" | "admin" | "agent";
-  number?: string;
-  extensionId?: string;
-  host?: string;
-  port?: number | null;
-  secret?: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-type UserFormState = {
-  id?: string;
-  name: string;
-  email: string;
-  password: string;
-  role: "user" | "admin" | "agent";
-  number: string;
-  extensionId: string;
-  host: string;
-  port: string;
-  secret: string;
-};
+import type { AdminUser, UserFormState } from "@/types/app";
 
 const emptyForm: UserFormState = {
   name: "",
