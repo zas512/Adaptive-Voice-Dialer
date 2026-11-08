@@ -1,7 +1,5 @@
-import type { CallPhase } from "@/types/app";
-import type { AMDResult } from "@/types/app";
-import type { EndEvent } from "jssip/lib/RTCSession";
-import type { RTCSession } from "jssip/lib/RTCSession";
+import type { EndEvent, RTCSession } from "jssip/lib/RTCSession";
+import type { AMDResult, CallPhase } from "@/types/app";
 
 /** Register the full call lifecycle using only the supplied refs and setters. */
 export function setupCallLifecycle(
@@ -13,6 +11,7 @@ export function setupCallLifecycle(
     currentCallRef: React.MutableRefObject<RTCSession | null>;
     remoteAudioRef: React.MutableRefObject<HTMLAudioElement | null>;
     getAMDResult: () => AMDResult | null;
+    onCallLogWrite?: (sessionId: string, write: Promise<boolean>) => void;
     setCallPhase: (phase: CallPhase) => void;
     setCallStatus: (status: string) => void;
     setAudioPlaybackBlocked: (next: boolean) => void;
@@ -154,15 +153,38 @@ export function setupCallLifecycle(
           )
         : 0,
     };
-    void fetch("/api/user/call-logs", {
+    console.info("[call] Final call-log payload.", payload);
+    const write = fetch("/api/user/call-logs", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
       keepalive: true,
-    }).catch((error: unknown) => {
-      console.error("[call] Could not save call log.", error);
-    });
+    })
+      .then(
+        async (response) => {
+          const responseBody: unknown = await response.json();
+          console.info("[call] Call-log save response.", {
+            status: response.status,
+            body: responseBody,
+          });
+          if (!response.ok) {
+            throw new Error(
+              `Call log save failed with status ${response.status}`,
+            );
+          }
+          return true;
+        },
+        (error: unknown) => {
+          console.error("[call] Could not save call log.", error);
+          return false;
+        },
+      )
+      .catch((error: unknown) => {
+        console.error("[call] Could not save call log.", error);
+        return false;
+      });
+    refs.onCallLogWrite?.(session.id, write);
   };
 
   const clearRemoteAudio = () => {

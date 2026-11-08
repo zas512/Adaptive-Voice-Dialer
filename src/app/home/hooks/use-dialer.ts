@@ -1,10 +1,10 @@
 "use client";
+import type { UA } from "jssip";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { setupCallLifecycle } from "@/app/home/lib/call-lifecycle";
 import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
 import type { AMDResult, CallPhase, SipConfig } from "@/types/app";
-import type { UA } from "jssip";
-import { type FormEvent, useEffect, useRef, useState } from "react";
 
 const SIP_CONFIG_STORAGE_PREFIX = "react-dialer.sip-config.";
 const ACTIVE_CALL_PHASES: CallPhase[] = [
@@ -94,6 +94,8 @@ export function useDialer() {
   const sipExtensionRef = useRef("");
   const currentCallRef = useRef<RTCSession | null>(null);
   const amdResultsRef = useRef(new WeakMap<RTCSession, AMDResult>());
+  const amdSessionsRef = useRef(new Map<string, RTCSession>());
+  const callLogWritesRef = useRef(new Map<string, Promise<boolean>>());
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const incomingRingtoneRef = useRef<HTMLAudioElement | null>(null);
   const sipManagerRef = useRef<SipSessionManager | null>(null);
@@ -546,19 +548,40 @@ export function useDialer() {
           );
         },
         onAMDMessage: (message) => {
-          const session = currentCallRef.current;
-          if (!session || session.isEnded()) return;
-
-          const sessionMatches = [
+          const matchingSessionId = [
             message.fromTag && `${message.callId}${message.fromTag}`,
             message.toTag && `${message.callId}${message.toTag}`,
-          ].includes(session.id);
+          ]
+            .filter((id): id is string => Boolean(id))
+            .find((id) => amdSessionsRef.current.has(id));
+          const activeSession = currentCallRef.current;
+          const activeSessionIsLive =
+            activeSession !== null && !activeSession.isEnded();
+          const session = matchingSessionId
+            ? amdSessionsRef.current.get(matchingSessionId)
+            : activeSessionIsLive
+              ? activeSession
+              : undefined;
+          if (!session) {
+            console.warn("[call][AMD] No call session available for message.", {
+              callId: message.callId,
+              fromTag: message.fromTag,
+              toTag: message.toTag,
+              remoteParty: message.remoteParty,
+              activeSessionId: activeSession?.id ?? null,
+              activeSessionIsLive,
+              knownSessionIds: [...amdSessionsRef.current.keys()],
+            });
+            return;
+          }
+
           const remoteParty = session.remote_identity.uri.user?.trim();
-          if (
-            !sessionMatches ||
-            !remoteParty ||
-            remoteParty !== message.remoteParty
-          ) {
+          if (!message.amdStatus || !message.amdCause) {
+            console.warn("[call][AMD] Message is missing a required field.", {
+              sessionId: session.id,
+              amdStatus: message.amdStatus,
+              amdCause: message.amdCause,
+            });
             return;
           }
 
@@ -567,7 +590,73 @@ export function useDialer() {
             amdCause: message.amdCause,
           };
           amdResultsRef.current.set(session, result);
-          console.log("AMD Result:", result);
+          console.info("[call][AMD] Updated live call data.", {
+            sessionId: session.id,
+            matchMethod: matchingSessionId
+              ? "sip-session-id"
+              : "only-active-call",
+            callId: message.callId,
+            fromTag: message.fromTag,
+            toTag: message.toTag,
+            expectedRemoteParty: remoteParty ?? null,
+            messageRemoteParty: message.remoteParty,
+            remotePartyMatches: remoteParty === message.remoteParty,
+            ...result,
+          });
+
+          if (session.isEnded()) {
+            const write = callLogWritesRef.current.get(session.id);
+            if (!write) {
+              console.warn(
+                "[call][AMD] Call ended but its call-log save is not tracked.",
+                { sessionId: session.id, ...result },
+              );
+              return;
+            }
+
+            void write
+              .then(async (saved) => {
+                if (!saved) {
+                  console.error(
+                    "[call][AMD] Skipping update because initial call-log save failed.",
+                    { sessionId: session.id, ...result },
+                  );
+                  return;
+                }
+
+                console.info("[call][AMD] Updating saved call log.", {
+                  userId,
+                  sipSessionId: session.id,
+                  ...result,
+                });
+                const response = await fetch("/api/user/call-logs", {
+                  method: "PATCH",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    userId,
+                    sipSessionId: session.id,
+                    ...result,
+                  }),
+                });
+                const responseBody: unknown = await response.json();
+                console.info("[call][AMD] Call-log update response.", {
+                  status: response.status,
+                  body: responseBody,
+                });
+                if (!response.ok) {
+                  throw new Error(
+                    `AMD call log update failed with status ${response.status}`,
+                  );
+                }
+              })
+              .catch((error: unknown) => {
+                console.error(
+                  "[call] Could not update call log with AMD.",
+                  error,
+                );
+              });
+          }
         },
         onNewRTCSession: (session: RTCSession) => {
           if (disposed) {
@@ -605,6 +694,12 @@ export function useDialer() {
           }
 
           currentCallRef.current = session;
+          amdSessionsRef.current.set(session.id, session);
+          console.info("[call] Live call session created.", {
+            sessionId: session.id,
+            direction: session.direction,
+            remoteParty: remoteNumber,
+          });
           setRemoteParty(remoteNumber);
           setCallPhase(incoming ? "incoming" : "dialing");
           setCallStatus(
@@ -622,6 +717,9 @@ export function useDialer() {
               currentCallRef,
               remoteAudioRef,
               getAMDResult: () => amdResultsRef.current.get(session) ?? null,
+              onCallLogWrite: (sessionId, write) => {
+                callLogWritesRef.current.set(sessionId, write);
+              },
               setCallPhase,
               setCallStatus,
               setAudioPlaybackBlocked,
@@ -644,6 +742,8 @@ export function useDialer() {
       sipManagerRef.current?.stop();
       currentCallRef.current?.terminate();
       currentCallRef.current = null;
+      amdSessionsRef.current.clear();
+      callLogWritesRef.current.clear();
       uaRef.current = null;
       sipExtensionRef.current = "";
     };

@@ -183,3 +183,70 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  try {
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    }
+
+    if (!isRecord(body)) {
+      return NextResponse.json(
+        { error: "Invalid AMD call log update" },
+        { status: 400 },
+      );
+    }
+
+    const { userId, sipSessionId, amdStatus, amdCause } = body;
+    if (
+      typeof userId !== "string" ||
+      !mongoose.isValidObjectId(userId) ||
+      typeof sipSessionId !== "string" ||
+      !sipSessionId.trim() ||
+      sipSessionId.length > 200 ||
+      typeof amdStatus !== "string" ||
+      !amdStatus.trim() ||
+      amdStatus.length > 100 ||
+      typeof amdCause !== "string" ||
+      !amdCause.trim() ||
+      amdCause.length > 100
+    ) {
+      return NextResponse.json(
+        { error: "AMD call log fields are invalid" },
+        { status: 400 },
+      );
+    }
+
+    await connectDB();
+    const callLog = await CallLog.findOneAndUpdate(
+      { userId, sipSessionId: sipSessionId.trim() },
+      { $set: { amdStatus: amdStatus.trim(), amdCause: amdCause.trim() } },
+      { new: true },
+    ).lean();
+
+    if (!callLog) {
+      return NextResponse.json(
+        { error: "Call log not found" },
+        { status: 404 },
+      );
+    }
+
+    return NextResponse.json({
+      callLog: {
+        id: callLog._id.toString(),
+        sipSessionId: callLog.sipSessionId,
+        amdStatus: callLog.amdStatus,
+        amdCause: callLog.amdCause,
+      },
+    });
+  } catch (error: unknown) {
+    console.error("Call logs AMD PATCH error:", error);
+    return NextResponse.json(
+      { error: "Could not update call log with AMD result" },
+      { status: 500 },
+    );
+  }
+}

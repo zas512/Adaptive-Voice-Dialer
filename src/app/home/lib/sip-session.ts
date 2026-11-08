@@ -1,7 +1,7 @@
 "use client";
 import { UA, WebSocketInterface } from "jssip";
-import type { IncomingMessageEvent, OutgoingMessageEvent } from "jssip/lib/UA";
 import type { RTCSession } from "jssip/lib/RTCSession";
+import type { IncomingMessageEvent, OutgoingMessageEvent } from "jssip/lib/UA";
 import type { AMDMessage, SipHandlers, SipProfile } from "@/types/app";
 
 export type { RTCSession };
@@ -115,24 +115,25 @@ export class SipSessionManager {
     ua.on(
       "newMessage",
       (event: IncomingMessageEvent | OutgoingMessageEvent) => {
-        if (
-          this.disposed ||
-          controller.signal.aborted ||
-          event.originator !== "remote"
-        ) {
-          return;
-        }
+        if (this.disposed || controller.signal.aborted) return;
+
+        if (event.originator !== "remote") return;
 
         const body = event.request.body;
         if (!body?.includes("AMDSTATUS=")) return;
 
         const amdStatus = body.match(/AMDSTATUS=([^^\r\n]*)/)?.[1]?.trim();
-        if (!amdStatus) return;
+        if (!amdStatus) {
+          console.warn("[call][AMD] Could not parse AMDSTATUS.", { body });
+          return;
+        }
 
         const amdCause =
           body.match(/AMDCAUSE=([^^\r\n]*)/)?.[1]?.trim() || null;
         const fromTag = event.request.from.getParam<unknown>("tag");
         const toTag = event.request.to.getParam<unknown>("tag");
+        const uniqueId =
+          body.match(/UNIQUEID=([^^\r\n]*)/)?.[1]?.trim() ?? null;
         const message: AMDMessage = {
           callId: event.request.getHeader("Call-ID"),
           fromTag: typeof fromTag === "string" ? fromTag : null,
@@ -142,6 +143,12 @@ export class SipSessionManager {
           amdCause,
         };
 
+        console.info("[call][AMD] Parsed remote SIP MESSAGE.", {
+          ...message,
+          uniqueId,
+          requestFrom: event.request.from.toString(),
+          requestTo: event.request.to.toString(),
+        });
         this.handlers.onAMDMessage?.(message);
       },
     );
