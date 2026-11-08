@@ -1,5 +1,5 @@
-import mongoose from "mongoose";
 import { type NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth-server";
 import connectDB from "@/lib/mongodb";
 import CallLog, { type CallState, type CallType } from "@/models/CallLog";
 
@@ -35,10 +35,17 @@ function parseDate(value: unknown): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     await connectDB();
-    const callLogs = await CallLog.find({}).sort({ endedAt: -1 }).lean();
+    const callLogs = await CallLog.find({ userId: user.id })
+      .sort({ endedAt: -1 })
+      .lean();
 
     return NextResponse.json({
       callLogs: callLogs.map((callLog) => ({
@@ -68,6 +75,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -80,7 +92,6 @@ export async function POST(request: NextRequest) {
     }
 
     const {
-      userId,
       sipSessionId,
       phoneNumber,
       callType,
@@ -107,8 +118,6 @@ export async function POST(request: NextRequest) {
       (typeof value === "string" && value.length <= 100);
 
     if (
-      typeof userId !== "string" ||
-      !mongoose.isValidObjectId(userId) ||
       typeof sipSessionId !== "string" ||
       !sipSessionId.trim() ||
       sipSessionId.length > 200 ||
@@ -138,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     await connectDB();
     const callLog = await CallLog.create({
-      userId,
+      userId: user.id,
       sipSessionId: sipSessionId.trim(),
       phoneNumber: phoneNumber.trim(),
       callType,
@@ -186,6 +195,11 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     let body: unknown;
     try {
       body = await request.json();
@@ -200,10 +214,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { userId, sipSessionId, amdStatus, amdCause } = body;
+    const { sipSessionId, amdStatus, amdCause } = body;
     if (
-      typeof userId !== "string" ||
-      !mongoose.isValidObjectId(userId) ||
       typeof sipSessionId !== "string" ||
       !sipSessionId.trim() ||
       sipSessionId.length > 200 ||
@@ -222,7 +234,7 @@ export async function PATCH(request: NextRequest) {
 
     await connectDB();
     const callLog = await CallLog.findOneAndUpdate(
-      { userId, sipSessionId: sipSessionId.trim() },
+      { userId: user.id, sipSessionId: sipSessionId.trim() },
       { $set: { amdStatus: amdStatus.trim(), amdCause: amdCause.trim() } },
       { new: true },
     ).lean();

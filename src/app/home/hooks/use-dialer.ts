@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useRef, useState } from "react";
 import { setupCallLifecycle } from "@/app/home/lib/call-lifecycle";
 import { type RTCSession, SipSessionManager } from "@/app/home/lib/sip-session";
 import { useProtectedRoute } from "@/hooks/use-protected-route";
+import { getStoredAuthSession } from "@/lib/auth-client";
 import type { AMDResult, CallPhase, SipConfig } from "@/types/app";
 
 const SIP_CONFIG_STORAGE_PREFIX = "react-dialer.sip-config.";
@@ -629,12 +630,17 @@ export function useDialer() {
                   sipSessionId: session.id,
                   ...result,
                 });
+                const authSession = getStoredAuthSession();
                 const response = await fetch("/api/user/call-logs", {
                   method: "PATCH",
                   credentials: "include",
-                  headers: { "Content-Type": "application/json" },
+                  headers: {
+                    "Content-Type": "application/json",
+                    ...(authSession
+                      ? { Authorization: `Bearer ${authSession.token}` }
+                      : {}),
+                  },
                   body: JSON.stringify({
-                    userId,
                     sipSessionId: session.id,
                     ...result,
                   }),

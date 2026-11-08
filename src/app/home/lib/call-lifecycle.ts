@@ -1,4 +1,5 @@
 import type { EndEvent, RTCSession } from "jssip/lib/RTCSession";
+import { getStoredAuthSession } from "@/lib/auth-client";
 import type { AMDResult, CallPhase } from "@/types/app";
 
 /** Register the full call lifecycle using only the supplied refs and setters. */
@@ -154,10 +155,16 @@ export function setupCallLifecycle(
         : 0,
     };
     console.info("[call] Final call-log payload.", payload);
+    const authSession = getStoredAuthSession();
     const write = fetch("/api/user/call-logs", {
       method: "POST",
       credentials: "include",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(authSession
+          ? { Authorization: `Bearer ${authSession.token}` }
+          : {}),
+      },
       body: JSON.stringify(payload),
       keepalive: true,
     })

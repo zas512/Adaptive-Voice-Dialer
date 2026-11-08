@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { getStoredAuthSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { CallLog } from "@/types/app";
 
@@ -48,8 +49,12 @@ export default function CallLogsPage() {
 
     async function loadCallLogs() {
       try {
+        const session = getStoredAuthSession();
         const response = await fetch("/api/user/call-logs", {
           credentials: "include",
+          headers: session
+            ? { Authorization: `Bearer ${session.token}` }
+            : undefined,
           signal: controller.signal,
         });
         const result = (await response.json()) as {
