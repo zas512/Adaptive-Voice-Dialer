@@ -24,6 +24,7 @@
     "mongoose": "^9.12.0",
     "next": "16.4.5",
     "next-themes": "^0.4.6",
+    "ollama": "^0.6.4",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "tailwind-merge": "^3.7.0",
@@ -41,5 +42,8 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^7"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true
   }
 }
