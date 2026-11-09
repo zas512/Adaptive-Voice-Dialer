@@ -1,6 +1,5 @@
 import { pipeline } from "@xenova/transformers";
 import { type NextRequest, NextResponse } from "next/server";
-import { Ollama } from "ollama";
 import { WaveFile } from "wavefile";
 import { getCurrentUser } from "@/lib/auth-server";
 import connectDB from "@/lib/mongodb";
@@ -11,10 +10,9 @@ export const runtime = "nodejs";
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const MAX_SAMPLE_SECONDS = 5;
 const MODEL_ID = "Xenova/whisper-base";
-const CLASSIFICATION_MODEL_ID = "qwen2.5:1.5b";
-const ollama = new Ollama({
-  host: process.env.OLLAMA_HOST || "http://127.0.0.1:11434",
-});
+const CLASSIFICATION_MODEL_ID = process.env.GROQ_MODEL || "openai/gpt-oss-20b";
+const GROQ_CHAT_COMPLETIONS_URL =
+  "https://api.groq.com/openai/v1/chat/completions";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -66,27 +64,56 @@ function getTranscriber() {
 }
 
 async function classifyTranscription(transcription: string) {
-  const response = await ollama.chat({
-    model: CLASSIFICATION_MODEL_ID,
-    messages: [
-      { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `Classify this speech transcription:\n"""${transcription}"""`,
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) {
+    throw new Error("GROQ_API_KEY is not configured.");
+  }
+
+  const response = await fetch(GROQ_CHAT_COMPLETIONS_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: CLASSIFICATION_MODEL_ID,
+      messages: [
+        { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `Classify this speech transcription:\n"""${transcription}"""`,
+        },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "transcription_classification",
+          strict: true,
+          schema: CLASSIFICATION_SCHEMA,
+        },
       },
-    ],
-    format: CLASSIFICATION_SCHEMA,
-    stream: false,
-    options: { temperature: 0 },
+      temperature: 0,
+    }),
   });
 
-  const result: unknown = JSON.parse(response.message.content);
+  if (!response.ok) {
+    throw new Error(`Groq API request failed with status ${response.status}.`);
+  }
+
+  const completion: unknown = await response.json();
   if (
-    typeof result !== "object" ||
-    result === null ||
-    !("classification" in result) ||
-    !("confidence" in result) ||
-    !("reasoning" in result) ||
+    !isRecord(completion) ||
+    !Array.isArray(completion.choices) ||
+    !isRecord(completion.choices[0]) ||
+    !isRecord(completion.choices[0].message) ||
+    typeof completion.choices[0].message.content !== "string"
+  ) {
+    throw new TypeError("Groq returned an invalid chat completion.");
+  }
+
+  const result: unknown = JSON.parse(completion.choices[0].message.content);
+  if (
+    !isRecord(result) ||
     (result.classification !== "ai" &&
       result.classification !== "human" &&
       result.classification !== "voicemail") ||
@@ -97,7 +124,7 @@ async function classifyTranscription(transcription: string) {
     typeof result.reasoning !== "string"
   ) {
     throw new TypeError(
-      "Ollama returned a classification with an invalid shape.",
+      "Groq returned a classification with an invalid shape.",
     );
   }
 
@@ -348,7 +375,7 @@ export async function POST(request: NextRequest) {
     try {
       analysis = await classifyTranscription(transcription);
     } catch (error: unknown) {
-      console.error("[classification] Ollama request failed.", error);
+      console.error("[classification] Groq request failed.", error);
       return NextResponse.json(
         {
           error:

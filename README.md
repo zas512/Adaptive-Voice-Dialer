@@ -71,6 +71,13 @@ match the active call. The user ID is taken from the
 authenticated session rather than the request body. `GET /api/user/call-logs`
 returns the latest 100 logs for that user.
 
+## Audio classification
+
+Call audio is transcribed locally with Whisper and classified using Groq. Set
+`GROQ_API_KEY` in `.env.local` to enable classification. The default Groq model is
+`openai/gpt-oss-20b`; set `GROQ_MODEL` to use another supported model. Keep the
+API key server-side and do not expose it through a `NEXT_PUBLIC_` variable.
+
 ## Profile
 
 `GET /api/user/profile` returns the authenticated user's profile without the SIP
