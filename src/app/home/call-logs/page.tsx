@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils";
 import type { CallLog } from "@/types/app";
 
 const statusStyles: Record<CallLog["callState"], string> = {
+  in_progress: "border border-info/25 bg-info/10 text-info",
   completed: "border border-success/25 bg-success/10 text-success",
   missed: "border border-warning/25 bg-warning/10 text-warning",
   cancelled: "border border-border bg-muted text-muted-foreground",
@@ -99,6 +100,7 @@ export default function CallLogsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Call State</TableHead>
+                <TableHead>AI inference</TableHead>
                 <TableHead>AMD Status</TableHead>
                 <TableHead>AMD Cause</TableHead>
                 <TableHead>Cancel Reason</TableHead>
@@ -109,7 +111,7 @@ export default function CallLogsPage() {
               {isLoading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="text-center text-muted-foreground"
                   >
                     Loading call logs...
@@ -118,7 +120,7 @@ export default function CallLogsPage() {
               ) : error ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="text-center text-destructive"
                   >
                     {error}
@@ -127,7 +129,7 @@ export default function CallLogsPage() {
               ) : callLogs.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={9}
+                    colSpan={10}
                     className="text-center text-muted-foreground"
                   >
                     No calls have been logged yet.
@@ -151,6 +153,33 @@ export default function CallLogsPage() {
                       >
                         {log.callState}
                       </span>
+                    </TableCell>
+                    <TableCell className="max-w-72">
+                      {log.aiInference ? (
+                        <div className="space-y-1">
+                          <p className="font-medium capitalize">
+                            {log.aiInference.classification.classification}
+                            {" · "}
+                            {Math.round(
+                              log.aiInference.classification.confidence * 100,
+                            )}
+                            %
+                          </p>
+                          <p
+                            className="line-clamp-2 text-xs text-muted-foreground"
+                            title={log.aiInference.transcription}
+                          >
+                            {log.aiInference.transcription ||
+                              log.aiInference.classification.reasoning}
+                          </p>
+                        </div>
+                      ) : log.callState === "in_progress" ? (
+                        <span className="text-muted-foreground">
+                          Analyzing first 5 seconds…
+                        </span>
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
                     <TableCell>{log.amdStatus ?? "—"}</TableCell>
                     <TableCell>{log.amdCause ?? "—"}</TableCell>

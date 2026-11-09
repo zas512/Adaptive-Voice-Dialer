@@ -45,12 +45,27 @@ export interface CallLog {
   sipSessionId: string;
   phoneNumber: string;
   callType: "inbound" | "outbound";
-  callState: "completed" | "missed" | "cancelled" | "failed";
+  callState: "in_progress" | "completed" | "missed" | "cancelled" | "failed";
   amdStatus?: string | null;
   amdCause?: string | null;
+  aiInference?: AIInference | null;
   cancelReason: string | null;
   startedAt: string;
   durationSeconds: number;
+}
+
+export interface AIInference {
+  transcription: string;
+  model: string;
+  classification: {
+    classification: "ai" | "human" | "voicemail";
+    confidence: number;
+    reasoning: string;
+  };
+  classificationModel: string;
+  sampleRate: number;
+  channels: number;
+  analyzedAt: string;
 }
 
 export type AdminUser = {

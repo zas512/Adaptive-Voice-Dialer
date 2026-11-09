@@ -6,7 +6,26 @@ import mongoose, {
 } from "mongoose";
 
 export type CallType = "inbound" | "outbound";
-export type CallState = "completed" | "missed" | "cancelled" | "failed";
+export type CallState =
+  | "in_progress"
+  | "completed"
+  | "missed"
+  | "cancelled"
+  | "failed";
+
+export interface IAIInference {
+  transcription: string;
+  model: string;
+  classification: {
+    classification: "ai" | "human" | "voicemail";
+    confidence: number;
+    reasoning: string;
+  };
+  classificationModel: string;
+  sampleRate: number;
+  channels: number;
+  analyzedAt: Date;
+}
 
 export interface ICallLog extends Document {
   userId: Types.ObjectId;
@@ -16,6 +35,7 @@ export interface ICallLog extends Document {
   callState: CallState;
   amdStatus: string | null;
   amdCause: string | null;
+  aiInference: IAIInference | null;
   cancelReason: string | null;
   hangupBy: "local" | "remote" | "system" | null;
   startedAt: Date;
@@ -50,7 +70,7 @@ const CallLogSchema = new Schema<ICallLog>(
     },
     callState: {
       type: String,
-      enum: ["completed", "missed", "cancelled", "failed"],
+      enum: ["in_progress", "completed", "missed", "cancelled", "failed"],
       required: true,
     },
     amdStatus: {
@@ -62,6 +82,33 @@ const CallLogSchema = new Schema<ICallLog>(
       type: String,
       default: null,
       maxlength: 100,
+    },
+    aiInference: {
+      type: new Schema<IAIInference>(
+        {
+          transcription: { type: String, required: true },
+          model: { type: String, required: true, maxlength: 100 },
+          classification: {
+            classification: {
+              type: String,
+              enum: ["ai", "human", "voicemail"],
+              required: true,
+            },
+            confidence: { type: Number, min: 0, max: 1, required: true },
+            reasoning: { type: String, required: true, maxlength: 2000 },
+          },
+          classificationModel: {
+            type: String,
+            required: true,
+            maxlength: 100,
+          },
+          sampleRate: { type: Number, required: true },
+          channels: { type: Number, required: true },
+          analyzedAt: { type: Date, required: true },
+        },
+        { _id: false },
+      ),
+      default: null,
     },
     cancelReason: {
       type: String,

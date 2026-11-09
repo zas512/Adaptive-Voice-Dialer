@@ -718,7 +718,6 @@ export function useDialer() {
             session,
             incoming,
             remoteNumber,
-            userId,
             {
               currentCallRef,
               remoteAudioRef,
@@ -744,9 +743,9 @@ export function useDialer() {
     uaRef.current = manager.getUA();
 
     return () => {
+      currentCallRef.current?.terminate();
       disposed = true;
       sipManagerRef.current?.stop();
-      currentCallRef.current?.terminate();
       currentCallRef.current = null;
       amdSessionsRef.current.clear();
       callLogWritesRef.current.clear();

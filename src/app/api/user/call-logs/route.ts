@@ -4,8 +4,15 @@ import connectDB from "@/lib/mongodb";
 import CallLog, { type CallState, type CallType } from "@/models/CallLog";
 
 const CALL_TYPES = ["inbound", "outbound"] as const;
-const CALL_STATES = ["completed", "missed", "cancelled", "failed"] as const;
+const CALL_STATES = [
+  "in_progress",
+  "completed",
+  "missed",
+  "cancelled",
+  "failed",
+] as const;
 const HANGUP_ORIGINATORS = ["local", "remote", "system"] as const;
+const AI_CLASSIFICATIONS = ["ai", "human", "voicemail"] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -27,6 +34,42 @@ function isHangupOriginator(
 
 function isDuration(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function isAIInference(value: unknown): value is {
+  transcription: string;
+  model: string;
+  classification: {
+    classification: "ai" | "human" | "voicemail";
+    confidence: number;
+    reasoning: string;
+  };
+  classificationModel: string;
+  sampleRate: number;
+  channels: number;
+  analyzedAt: string;
+} {
+  if (!isRecord(value) || !isRecord(value.classification)) return false;
+  const classification = value.classification;
+  return (
+    typeof value.transcription === "string" &&
+    value.transcription.length <= 20_000 &&
+    typeof value.model === "string" &&
+    value.model.length <= 100 &&
+    AI_CLASSIFICATIONS.some((item) => item === classification.classification) &&
+    typeof classification.confidence === "number" &&
+    Number.isFinite(classification.confidence) &&
+    classification.confidence >= 0 &&
+    classification.confidence <= 1 &&
+    typeof classification.reasoning === "string" &&
+    classification.reasoning.length <= 2000 &&
+    typeof value.classificationModel === "string" &&
+    value.classificationModel.length <= 100 &&
+    value.sampleRate === 16_000 &&
+    value.channels === 1 &&
+    typeof value.analyzedAt === "string" &&
+    !Number.isNaN(Date.parse(value.analyzedAt))
+  );
 }
 
 function parseDate(value: unknown): Date | null {
@@ -56,6 +99,7 @@ export async function GET(request: NextRequest) {
         callState: callLog.callState,
         amdStatus: callLog.amdStatus ?? null,
         amdCause: callLog.amdCause ?? null,
+        aiInference: callLog.aiInference ?? null,
         cancelReason: callLog.cancelReason,
         hangupBy: callLog.hangupBy,
         startedAt: callLog.startedAt,
@@ -155,6 +199,7 @@ export async function POST(request: NextRequest) {
       amdStatus:
         typeof amdStatus === "string" ? amdStatus.trim() || null : null,
       amdCause: typeof amdCause === "string" ? amdCause.trim() || null : null,
+      aiInference: null,
       cancelReason:
         typeof cancelReason === "string" ? cancelReason.trim() || null : null,
       hangupBy: hangupBy ?? null,
@@ -174,6 +219,7 @@ export async function POST(request: NextRequest) {
           callState: callLog.callState,
           amdStatus: callLog.amdStatus,
           amdCause: callLog.amdCause,
+          aiInference: callLog.aiInference,
           cancelReason: callLog.cancelReason,
           hangupBy: callLog.hangupBy,
           startedAt: callLog.startedAt,
@@ -214,20 +260,124 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const { sipSessionId, amdStatus, amdCause } = body;
+    const { sipSessionId } = body;
     if (
       typeof sipSessionId !== "string" ||
       !sipSessionId.trim() ||
-      sipSessionId.length > 200 ||
-      typeof amdStatus !== "string" ||
-      !amdStatus.trim() ||
-      amdStatus.length > 100 ||
-      typeof amdCause !== "string" ||
-      !amdCause.trim() ||
-      amdCause.length > 100
+      sipSessionId.length > 200
     ) {
       return NextResponse.json(
-        { error: "AMD call log fields are invalid" },
+        { error: "Call log update fields are invalid" },
+        { status: 400 },
+      );
+    }
+
+    const updates: Record<string, unknown> = {};
+    if ("amdStatus" in body || "amdCause" in body) {
+      const { amdStatus, amdCause } = body;
+      if (
+        typeof amdStatus !== "string" ||
+        !amdStatus.trim() ||
+        amdStatus.length > 100 ||
+        typeof amdCause !== "string" ||
+        !amdCause.trim() ||
+        amdCause.length > 100
+      ) {
+        return NextResponse.json(
+          { error: "AMD call log fields are invalid" },
+          { status: 400 },
+        );
+      }
+      updates.amdStatus = amdStatus.trim();
+      updates.amdCause = amdCause.trim();
+    }
+
+    if ("aiInference" in body) {
+      if (!isAIInference(body.aiInference)) {
+        return NextResponse.json(
+          { error: "AI inference fields are invalid" },
+          { status: 400 },
+        );
+      }
+      updates.aiInference = {
+        ...body.aiInference,
+        analyzedAt: new Date(body.aiInference.analyzedAt),
+      };
+    }
+
+    if ("callState" in body) {
+      if (!isCallState(body.callState) || body.callState === "in_progress") {
+        return NextResponse.json(
+          { error: "Call state update is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.callState = body.callState;
+    }
+
+    if ("answeredAt" in body) {
+      const answeredAt =
+        body.answeredAt === null ? null : parseDate(body.answeredAt);
+      if (body.answeredAt !== null && !answeredAt) {
+        return NextResponse.json(
+          { error: "Answered time is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.answeredAt = answeredAt;
+    }
+
+    if ("endedAt" in body) {
+      const endedAt = parseDate(body.endedAt);
+      if (!endedAt) {
+        return NextResponse.json(
+          { error: "Ended time is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.endedAt = endedAt;
+    }
+
+    if ("durationSeconds" in body) {
+      if (!isDuration(body.durationSeconds)) {
+        return NextResponse.json(
+          { error: "Call duration is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.durationSeconds = body.durationSeconds;
+    }
+
+    if ("cancelReason" in body) {
+      if (
+        body.cancelReason !== null &&
+        (typeof body.cancelReason !== "string" ||
+          body.cancelReason.length > 500)
+      ) {
+        return NextResponse.json(
+          { error: "Call cancellation reason is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.cancelReason =
+        typeof body.cancelReason === "string"
+          ? body.cancelReason.trim() || null
+          : null;
+    }
+
+    if ("hangupBy" in body) {
+      if (body.hangupBy !== null && !isHangupOriginator(body.hangupBy)) {
+        return NextResponse.json(
+          { error: "Call hangup originator is invalid" },
+          { status: 400 },
+        );
+      }
+      updates.hangupBy = body.hangupBy;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return NextResponse.json(
+        { error: "No call log fields were provided for update" },
         { status: 400 },
       );
     }
@@ -235,7 +385,7 @@ export async function PATCH(request: NextRequest) {
     await connectDB();
     const callLog = await CallLog.findOneAndUpdate(
       { userId: user.id, sipSessionId: sipSessionId.trim() },
-      { $set: { amdStatus: amdStatus.trim(), amdCause: amdCause.trim() } },
+      { $set: updates },
       { new: true },
     ).lean();
 
@@ -252,12 +402,16 @@ export async function PATCH(request: NextRequest) {
         sipSessionId: callLog.sipSessionId,
         amdStatus: callLog.amdStatus,
         amdCause: callLog.amdCause,
+        aiInference: callLog.aiInference ?? null,
+        callState: callLog.callState,
+        endedAt: callLog.endedAt,
+        durationSeconds: callLog.durationSeconds,
       },
     });
   } catch (error: unknown) {
-    console.error("Call logs AMD PATCH error:", error);
+    console.error("Call logs PATCH error:", error);
     return NextResponse.json(
-      { error: "Could not update call log with AMD result" },
+      { error: "Could not update call log" },
       { status: 500 },
     );
   }

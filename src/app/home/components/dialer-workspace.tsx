@@ -80,6 +80,11 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
           tone={websocketConnected ? "success" : "danger"}
         />
       </section>
+      <p className="text-xs leading-5 text-muted-foreground">
+        AI/STT analyzes at most the first five seconds of the other party’s
+        audio after the call is answered. The raw audio sample is not saved in
+        call logs.
+      </p>
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
           <div className="space-y-5">

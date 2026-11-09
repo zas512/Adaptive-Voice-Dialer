@@ -3,15 +3,23 @@ import { type NextRequest, NextResponse } from "next/server";
 import { Ollama } from "ollama";
 import { WaveFile } from "wavefile";
 import { getCurrentUser } from "@/lib/auth-server";
+import connectDB from "@/lib/mongodb";
+import CallLog from "@/models/CallLog";
 
 export const runtime = "nodejs";
 
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
+const MAX_SAMPLE_SECONDS = 5;
 const MODEL_ID = "Xenova/whisper-base";
 const CLASSIFICATION_MODEL_ID = "qwen2.5:1.5b";
 const ollama = new Ollama({
   host: process.env.OLLAMA_HOST || "http://127.0.0.1:11434",
 });
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
 const CLASSIFICATION_SCHEMA = {
   type: "object",
   properties: {
@@ -189,15 +197,72 @@ export async function POST(request: NextRequest) {
 
     let audioBytes: Uint8Array;
     let fileName: string | null = null;
+    let callData: {
+      sipSessionId: string;
+      phoneNumber: string;
+      callType: "inbound" | "outbound";
+      startedAt: string;
+      capturedSeconds: number;
+    } | null = null;
     if (contentType.toLowerCase().startsWith("multipart/form-data")) {
       const formData = await request.formData();
       const audioFile = formData.get("audio") ?? formData.get("file");
+      const callDataField = formData.get("callData");
       if (typeof audioFile === "string" || !audioFile) {
         return NextResponse.json(
           { error: 'Attach a WAV file in the multipart field "audio".' },
           { status: 400 },
         );
       }
+
+      if (typeof callDataField !== "string") {
+        return NextResponse.json(
+          { error: 'Include call metadata in the multipart field "callData".' },
+          { status: 400 },
+        );
+      }
+
+      let parsedCallData: unknown;
+      try {
+        parsedCallData = JSON.parse(callDataField);
+      } catch {
+        return NextResponse.json(
+          { error: "Call metadata must be valid JSON." },
+          { status: 400 },
+        );
+      }
+      if (
+        !isRecord(parsedCallData) ||
+        typeof parsedCallData.sipSessionId !== "string" ||
+        !parsedCallData.sipSessionId.trim() ||
+        parsedCallData.sipSessionId.length > 200 ||
+        typeof parsedCallData.phoneNumber !== "string" ||
+        !parsedCallData.phoneNumber.trim() ||
+        parsedCallData.phoneNumber.length > 100 ||
+        (parsedCallData.callType !== "inbound" &&
+          parsedCallData.callType !== "outbound") ||
+        typeof parsedCallData.startedAt !== "string" ||
+        Number.isNaN(Date.parse(parsedCallData.startedAt)) ||
+        typeof parsedCallData.capturedSeconds !== "number" ||
+        !Number.isFinite(parsedCallData.capturedSeconds) ||
+        parsedCallData.capturedSeconds <= 0 ||
+        parsedCallData.capturedSeconds > MAX_SAMPLE_SECONDS
+      ) {
+        return NextResponse.json(
+          {
+            error: "Call metadata is invalid or exceeds the five-second limit.",
+          },
+          { status: 400 },
+        );
+      }
+      callData = {
+        sipSessionId: parsedCallData.sipSessionId.trim(),
+        phoneNumber: parsedCallData.phoneNumber.trim(),
+        callType: parsedCallData.callType,
+        startedAt: parsedCallData.startedAt,
+        capturedSeconds: parsedCallData.capturedSeconds,
+      };
+
       if (audioFile.size === 0) {
         return NextResponse.json(
           { error: "Audio file is empty" },
@@ -247,6 +312,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (audio.length / 16_000 > MAX_SAMPLE_SECONDS + 0.05) {
+      return NextResponse.json(
+        { error: "Call audio must not exceed the first five seconds." },
+        { status: 400 },
+      );
+    }
+
+    if (callData) {
+      await connectDB();
+      const callLog = await CallLog.findOne({
+        userId: user.id,
+        sipSessionId: callData.sipSessionId,
+      })
+        .select("_id")
+        .lean();
+      if (!callLog) {
+        return NextResponse.json(
+          { error: "Call log was not found for this audio sample." },
+          { status: 404 },
+        );
+      }
+    }
+
     const transcriber = await getTranscriber();
     const result = await transcriber(audio, {
       chunk_length_s: 30,
@@ -281,6 +369,8 @@ export async function POST(request: NextRequest) {
       sampleRate: 16_000,
       channels: 1,
       fileName,
+      callData,
+      analyzedAt: new Date().toISOString(),
     });
   } catch (error: unknown) {
     console.error("[transcription] Audio transcription failed.", error);
