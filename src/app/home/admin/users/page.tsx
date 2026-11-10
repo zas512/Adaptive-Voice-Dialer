@@ -178,11 +178,6 @@ export default function AdminUsersPage() {
       return;
     }
 
-    if (formMode === "edit" && !formData.id) {
-      setFormError("Missing user identifier.");
-      return;
-    }
-
     const basePayload: Record<string, unknown> = {
       name: formData.name || undefined,
       email: formData.email,
@@ -204,8 +199,14 @@ export default function AdminUsersPage() {
           basePayload as Omit<UserFormState, "id">
         );
       } else {
+        const userId = formData.id;
+        if (!userId) {
+          setFormError("Missing user identifier.");
+          return;
+        }
+
         await updateUserMutation.mutateAsync({
-          id: formData.id,
+          id: userId,
           ...(basePayload as Partial<UserFormState>),
         });
       }

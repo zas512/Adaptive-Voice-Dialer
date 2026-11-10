@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
+  CardTitle
 } from "@/components/ui/card";
 import {
   Table,
@@ -14,18 +13,19 @@ import {
   TableCell,
   TableHead,
   TableHeader,
-  TableRow,
+  TableRow
 } from "@/components/ui/table";
 import { getStoredAuthSession } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 import type { CallLog } from "@/types/app";
+import { useEffect, useState } from "react";
 
 const statusStyles: Record<CallLog["callState"], string> = {
   in_progress: "border border-info/25 bg-info/10 text-info",
   completed: "border border-success/25 bg-success/10 text-success",
   missed: "border border-warning/25 bg-warning/10 text-warning",
   cancelled: "border border-border bg-muted text-muted-foreground",
-  failed: "border border-destructive/25 bg-destructive/10 text-destructive",
+  failed: "border border-destructive/25 bg-destructive/10 text-destructive"
 };
 
 function formatDuration(totalSeconds: number) {
@@ -56,7 +56,7 @@ export default function CallLogsPage() {
           headers: session
             ? { Authorization: `Bearer ${session.token}` }
             : undefined,
-          signal: controller.signal,
+          signal: controller.signal
         });
         const result = (await response.json()) as {
           callLogs?: CallLog[];
@@ -71,7 +71,7 @@ export default function CallLogsPage() {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Could not load call logs.",
+            : "Could not load call logs."
         );
       } finally {
         if (!controller.signal.aborted) setIsLoading(false);
@@ -100,9 +100,7 @@ export default function CallLogsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Call State</TableHead>
-                <TableHead>Answering party</TableHead>
-                <TableHead>AMD Status</TableHead>
-                <TableHead>AMD Cause</TableHead>
+                <TableHead>Answered By</TableHead>
                 <TableHead>Cancel Reason</TableHead>
                 <TableHead>Started At</TableHead>
               </TableRow>
@@ -148,7 +146,7 @@ export default function CallLogsPage() {
                       <span
                         className={cn(
                           "inline-flex items-center rounded-full px-3 py-1 text-xs font-medium",
-                          statusStyles[log.callState],
+                          statusStyles[log.callState]
                         )}
                       >
                         {log.callState}
@@ -165,13 +163,6 @@ export default function CallLogsPage() {
                                     .classification === "human"
                                 ? "Human"
                                 : "Voicemail"}
-                          </p>
-                          <p
-                            className="line-clamp-2 text-xs text-muted-foreground"
-                            title={log.aiInference.transcription}
-                          >
-                            {log.aiInference.transcription ||
-                              log.aiInference.classification.reasoning}
                           </p>
                         </div>
                       ) : log.callState === "in_progress" ? (

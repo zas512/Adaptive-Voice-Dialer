@@ -8,6 +8,7 @@ import { getStoredAuthSession } from "@/lib/auth-client";
 import type { AMDResult, CallPhase, SipConfig } from "@/types/app";
 
 const SIP_CONFIG_STORAGE_PREFIX = "react-dialer.sip-config.";
+const ANSWER_AUDIO_FILES = ["voicemail.mp3", "auto.mp3"] as const;
 const ACTIVE_CALL_PHASES: CallPhase[] = [
   "incoming",
   "answering",
@@ -17,6 +18,9 @@ const ACTIVE_CALL_PHASES: CallPhase[] = [
   "active",
   "ending",
 ];
+
+type AnswerAudioFile = (typeof ANSWER_AUDIO_FILES)[number];
+type AnswerAudioLoadStatus = "loading" | "ready" | "error";
 
 type AnswerAudioPlayback = {
   session: RTCSession;
@@ -111,6 +115,10 @@ export function useDialer() {
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const incomingRingtoneRef = useRef<HTMLAudioElement | null>(null);
   const sipManagerRef = useRef<SipSessionManager | null>(null);
+  const answerAudioContextRef = useRef<AudioContext | null>(null);
+  const answerAudioBuffersRef = useRef<
+    Partial<Record<AnswerAudioFile, AudioBuffer>>
+  >({});
   const answerAudioPlaybackRef = useRef<AnswerAudioPlayback | null>(null);
   const answerAudioPreparationSessionRef = useRef<RTCSession | null>(null);
   const incomingAnswerRef = useRef<HTMLButtonElement | null>(null);
@@ -121,6 +129,12 @@ export function useDialer() {
   const hasCallInProgress = ACTIVE_CALL_PHASES.includes(callPhase);
   const [isPreparingAnswerAudio, setIsPreparingAnswerAudio] = useState(false);
   const [answerAudioError, setAnswerAudioError] = useState<string | null>(null);
+  const [answerAudioLoadStatus, setAnswerAudioLoadStatus] = useState<
+    Record<AnswerAudioFile, AnswerAudioLoadStatus>
+  >({ "voicemail.mp3": "loading", "auto.mp3": "loading" });
+  const [answerAudioLoadErrors, setAnswerAudioLoadErrors] = useState<
+    Partial<Record<AnswerAudioFile, string>>
+  >({});
 
   const statusLabel = {
     idle: "Idle",
@@ -136,6 +150,69 @@ export function useDialer() {
     disconnected: "Disconnected",
   }[callPhase];
   const audioButtonLabel = isAudioOn ? "Turn speaker off" : "Turn speaker on";
+
+  useEffect(() => {
+    const audioContext = new AudioContext();
+    const abortController = new AbortController();
+    let disposed = false;
+    let timedOut = false;
+    const timeoutId = window.setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, 15_000);
+
+    answerAudioContextRef.current = audioContext;
+    void Promise.all(
+      ANSWER_AUDIO_FILES.map(async (audioFile) => {
+        try {
+          const response = await fetch(`/${audioFile}`, {
+            signal: abortController.signal,
+          });
+          if (!response.ok) {
+            throw new Error(`Request failed with status ${response.status}`);
+          }
+          const audioBuffer = await audioContext.decodeAudioData(
+            await response.arrayBuffer(),
+          );
+          if (disposed) return;
+
+          answerAudioBuffersRef.current[audioFile] = audioBuffer;
+          setAnswerAudioLoadStatus((previous) => ({
+            ...previous,
+            [audioFile]: "ready",
+          }));
+        } catch (error: unknown) {
+          if (disposed) return;
+          console.error(`[call response] Could not preload /${audioFile}.`, error);
+          const message = timedOut
+            ? `Loading /${audioFile} timed out. Refresh the dialer to retry.`
+            : `Could not preload /${audioFile}. Refresh the dialer to retry.`;
+          setAnswerAudioLoadStatus((previous) => ({
+            ...previous,
+            [audioFile]: "error",
+          }));
+          setAnswerAudioLoadErrors((previous) => ({
+            ...previous,
+            [audioFile]: message,
+          }));
+        }
+      }),
+    ).finally(() => window.clearTimeout(timeoutId));
+
+    return () => {
+      disposed = true;
+      abortController.abort();
+      window.clearTimeout(timeoutId);
+      if (answerAudioContextRef.current === audioContext) {
+        answerAudioContextRef.current = null;
+      }
+      if (audioContext.state !== "closed") {
+        void audioContext.close().catch((error: unknown) => {
+          console.warn("[call response] Could not close preload audio context.", error);
+        });
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!isIncomingCall) return;
@@ -310,15 +387,11 @@ export function useDialer() {
     playback.stream.getTracks().forEach((track) => {
       track.stop();
     });
-    if (playback.audioContext.state !== "closed") {
-      void playback.audioContext.close().catch((error: unknown) => {
-        console.warn("[call response] Could not close audio context.", error);
-      });
-    }
+    playback.source.disconnect();
   };
 
   const handleAnswerWithAudio = async (
-    audioFile: "voicemail.mp3" | "auto.mp3",
+    audioFile: AnswerAudioFile,
     audioLabel: "voicemail greeting" | "auto-answer recording",
   ) => {
     const incomingCall = currentCallRef.current;
@@ -331,25 +404,18 @@ export function useDialer() {
 
     let audioContext: AudioContext | null = null;
     try {
-      audioContext = new AudioContext();
-      await audioContext.resume();
-
-      const response = await fetch(`/${audioFile}`);
-      if (!response.ok) {
-        throw new Error(
-          `Call response audio request failed with status ${response.status}`,
-        );
+      audioContext = answerAudioContextRef.current;
+      const audioBuffer = answerAudioBuffersRef.current[audioFile];
+      if (!audioContext || !audioBuffer || audioContext.state === "closed") {
+        throw new Error(`/${audioFile} has not finished preloading.`);
       }
-      const audioBuffer = await audioContext.decodeAudioData(
-        await response.arrayBuffer(),
-      );
+      await audioContext.resume();
 
       if (
         answerAudioPreparationSessionRef.current !== incomingCall ||
         currentCallRef.current !== incomingCall ||
         incomingCall.isEnded()
       ) {
-        await audioContext.close();
         return;
       }
 
@@ -414,14 +480,6 @@ export function useDialer() {
     } catch (error: unknown) {
       console.error("[call response] Could not prepare audio.", error);
       stopAnswerAudioPlayback(incomingCall);
-      if (audioContext && audioContext.state !== "closed") {
-        void audioContext.close().catch((closeError: unknown) => {
-          console.warn(
-            "[call response] Could not close audio context.",
-            closeError,
-          );
-        });
-      }
       if (currentCallRef.current === incomingCall && !incomingCall.isEnded()) {
         const errorMessage = `Could not load ${audioFile}. Check the audio file and retry.`;
         setCallStatus(errorMessage);
@@ -955,6 +1013,8 @@ export function useDialer() {
     isIncomingCall,
     isPreparingAnswerAudio,
     answerAudioError,
+    answerAudioLoadStatus,
+    answerAudioLoadErrors,
     isCallActive,
     callDurationSeconds,
     callPhase,

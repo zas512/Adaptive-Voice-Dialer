@@ -24,6 +24,8 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     incomingAnswerRef,
     isPreparingAnswerAudio,
     answerAudioError,
+    answerAudioLoadStatus,
+    answerAudioLoadErrors,
     isAudioOn,
     isRegistered,
     registrationFailed,
@@ -460,44 +462,53 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
             <div className="mt-6 border-t border-border pt-5">
               <p className="text-sm font-semibold">Other response options</p>
               <div className="mt-3 grid gap-2">
-                {[
-                  {
-                    label: "Auto answer",
-                    description: "Answer and play the auto-answer recording",
-                    available: true,
-                  },
+                {([
                   {
                     label: "Voicemail",
                     description: "Play the greeting, then end the call",
                     available: true,
+                    audioFile: "voicemail.mp3",
+                  },
+                  {
+                    label: "Auto answer",
+                    description: "Answer and play the auto-answer recording",
+                    available: true,
+                    audioFile: "auto.mp3",
                   },
                   {
                     label: "AI voice",
                     description: "Answer with an AI voice",
                     available: false,
+                    audioFile: null,
                   },
                   {
                     label: "Answering machine",
                     description: "Play an answering-machine message",
                     available: false,
+                    audioFile: null,
                   },
-                ].map((option) => (
+                ] as const).map((option) => (
                   <Button
                     key={option.label}
                     type="button"
                     variant="outline"
                     onClick={
-                      option.available
-                        ? option.label === "Auto answer"
-                          ? handleAutoAnswer
-                          : handleAnswerWithVoicemail
-                        : undefined
+                      option.audioFile === "auto.mp3"
+                        ? handleAutoAnswer
+                        : option.audioFile === "voicemail.mp3"
+                          ? handleAnswerWithVoicemail
+                          : undefined
                     }
-                    disabled={!option.available || isPreparingAnswerAudio}
+                    disabled={
+                      !option.available ||
+                      isPreparingAnswerAudio ||
+                      (option.audioFile !== null &&
+                        answerAudioLoadStatus[option.audioFile] !== "ready")
+                    }
                     className={`h-auto min-h-14 justify-between rounded-xl px-4 py-2 text-left ${option.available ? "" : "opacity-70"}`}
                     aria-label={
                       option.available
-                        ? option.label === "Auto answer"
+                        ? option.audioFile === "auto.mp3"
                           ? "Answer and play the auto-answer recording"
                           : "Answer and play the voicemail greeting"
                         : `${option.label}, coming soon`
@@ -514,13 +525,30 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                     >
                       {option.available
                         ? isPreparingAnswerAudio
-                          ? "Loading…"
-                          : "Ready"
+                          ? "Preparing…"
+                          : option.audioFile &&
+                              answerAudioLoadStatus[option.audioFile] ===
+                                "loading"
+                            ? "Loading audio…"
+                            : option.audioFile &&
+                                answerAudioLoadStatus[option.audioFile] ===
+                                  "error"
+                              ? "Unavailable"
+                              : "Ready"
                         : "Soon"}
                     </span>
                   </Button>
                 ))}
               </div>
+              {Object.values(answerAudioLoadErrors).map((error) => (
+                <p
+                  key={error}
+                  className="mt-2 text-sm text-destructive"
+                  role="alert"
+                >
+                  {error}
+                </p>
+              ))}
               {answerAudioError && (
                 <p className="mt-3 text-sm text-destructive" role="alert">
                   {answerAudioError}
