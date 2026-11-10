@@ -173,8 +173,6 @@ export default function CallLogsPage() {
                         "—"
                       )}
                     </TableCell>
-                    <TableCell>{log.amdStatus ?? "—"}</TableCell>
-                    <TableCell>{log.amdCause ?? "—"}</TableCell>
                     <TableCell>{log.cancelReason ?? "—"}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {formatDate(log.startedAt)}
