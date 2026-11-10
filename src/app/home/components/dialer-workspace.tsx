@@ -22,8 +22,8 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     incomingRingtoneBlocked,
     handleEnableIncomingRingtone,
     incomingAnswerRef,
-    isPreparingVoicemail,
-    voicemailError,
+    isPreparingAnswerAudio,
+    answerAudioError,
     isAudioOn,
     isRegistered,
     registrationFailed,
@@ -42,6 +42,7 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     hasCallInProgress,
     handleCall,
     handleAnswerWithVoicemail,
+    handleAutoAnswer,
     handleDecline,
     phoneNumber,
     setPhoneNumber,
@@ -425,7 +426,7 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                 onClick={handleCall}
                 variant="success"
                 className="h-12 rounded-full"
-                disabled={isPreparingVoicemail}
+                disabled={isPreparingAnswerAudio}
               >
                 <Phone className="size-4" aria-hidden="true" />
                 Answer call
@@ -461,6 +462,11 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
               <div className="mt-3 grid gap-2">
                 {[
                   {
+                    label: "Auto answer",
+                    description: "Answer and play the auto-answer recording",
+                    available: true,
+                  },
+                  {
                     label: "Voicemail",
                     description: "Play the greeting, then end the call",
                     available: true,
@@ -481,13 +487,19 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                     type="button"
                     variant="outline"
                     onClick={
-                      option.available ? handleAnswerWithVoicemail : undefined
+                      option.available
+                        ? option.label === "Auto answer"
+                          ? handleAutoAnswer
+                          : handleAnswerWithVoicemail
+                        : undefined
                     }
-                    disabled={!option.available || isPreparingVoicemail}
+                    disabled={!option.available || isPreparingAnswerAudio}
                     className={`h-auto min-h-14 justify-between rounded-xl px-4 py-2 text-left ${option.available ? "" : "opacity-70"}`}
                     aria-label={
                       option.available
-                        ? "Answer and play the voicemail greeting"
+                        ? option.label === "Auto answer"
+                          ? "Answer and play the auto-answer recording"
+                          : "Answer and play the voicemail greeting"
                         : `${option.label}, coming soon`
                     }
                   >
@@ -501,7 +513,7 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                       className={`shrink-0 rounded-full px-2 py-1 text-[0.65rem] font-semibold ${option.available ? "bg-success/10 text-success" : "bg-secondary text-secondary-foreground"}`}
                     >
                       {option.available
-                        ? isPreparingVoicemail
+                        ? isPreparingAnswerAudio
                           ? "Loading…"
                           : "Ready"
                         : "Soon"}
@@ -509,14 +521,14 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                   </Button>
                 ))}
               </div>
-              {voicemailError && (
+              {answerAudioError && (
                 <p className="mt-3 text-sm text-destructive" role="alert">
-                  {voicemailError}
+                  {answerAudioError}
                 </p>
               )}
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                The voicemail greeting plays from public/voicemail.wav. The call
-                ends when playback finishes; caller messages are not recorded.
+                Auto answer plays public/auto.mp3; voicemail plays
+                public/voicemail.mp3. The call ends when playback finishes.
               </p>
             </div>
           </div>

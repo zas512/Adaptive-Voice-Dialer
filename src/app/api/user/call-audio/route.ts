@@ -45,6 +45,7 @@ const CLASSIFICATION_SYSTEM_PROMPT = `Classify the party answering the call from
 - "ai": an automated phone system, virtual assistant, or AI agent, supported by explicit self-identification or clear automated prompts/menu instructions. Do not label speech as "ai" merely because it is polished, scripted, or mentions AI.
 - "human": a person speaking as the call's answerer, supported by the words in the transcription.
 - "voicemail": an answering-machine or voicemail greeting, especially one asking the caller to leave a message.
+- "auto android/ios": automatically answered on Android or iOS devices and asks user who is he and why he is calling.
 Do not treat someone "chatting with AI" or talking about AI as evidence that the answering party is AI. Use only evidence present in the transcription; do not invent vocal qualities or context. If the short transcription is ambiguous, choose the best-supported category with low confidence and explain the uncertainty.
 Return one category, confidence from 0 to 1, and short evidence-based reasoning.`;
 

@@ -273,23 +273,38 @@ export async function PATCH(request: NextRequest) {
     }
 
     const updates: Record<string, unknown> = {};
-    if ("amdStatus" in body || "amdCause" in body) {
-      const { amdStatus, amdCause } = body;
+    if ("amdStatus" in body) {
+      const { amdStatus } = body;
       if (
-        typeof amdStatus !== "string" ||
-        !amdStatus.trim() ||
-        amdStatus.length > 100 ||
-        typeof amdCause !== "string" ||
-        !amdCause.trim() ||
-        amdCause.length > 100
+        amdStatus !== null &&
+        (typeof amdStatus !== "string" ||
+          !amdStatus.trim() ||
+          amdStatus.length > 100)
       ) {
         return NextResponse.json(
           { error: "AMD call log fields are invalid" },
           { status: 400 },
         );
       }
-      updates.amdStatus = amdStatus.trim();
-      updates.amdCause = amdCause.trim();
+      updates.amdStatus =
+        typeof amdStatus === "string" ? amdStatus.trim() : null;
+    }
+
+    if ("amdCause" in body) {
+      const { amdCause } = body;
+      if (
+        amdCause !== null &&
+        (typeof amdCause !== "string" ||
+          !amdCause.trim() ||
+          amdCause.length > 100)
+      ) {
+        return NextResponse.json(
+          { error: "AMD call log fields are invalid" },
+          { status: 400 },
+        );
+      }
+      updates.amdCause =
+        typeof amdCause === "string" ? amdCause.trim() : null;
     }
 
     if ("aiInference" in body) {
