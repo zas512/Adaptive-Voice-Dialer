@@ -100,6 +100,7 @@ export function useDialer() {
   const [incomingRingtoneBlocked, setIncomingRingtoneBlocked] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isAudioOn, setIsAudioOn] = useState(false);
+  const [callDurationSeconds, setCallDurationSeconds] = useState(0);
 
   const uaRef = useRef<UA | null>(null);
   const sipExtensionRef = useRef("");
@@ -150,6 +151,22 @@ export function useDialer() {
       previousFocusRef.current = null;
     };
   }, [isIncomingCall]);
+
+  useEffect(() => {
+    if (!isCallActive) {
+      setCallDurationSeconds(0);
+      return;
+    }
+
+    const connectedAt = Date.now();
+    const updateDuration = () => {
+      setCallDurationSeconds(Math.floor((Date.now() - connectedAt) / 1000));
+    };
+    updateDuration();
+    const intervalId = window.setInterval(updateDuration, 1000);
+
+    return () => window.clearInterval(intervalId);
+  }, [isCallActive]);
 
   useEffect(() => {
     const ringtone = new Audio("/incoming.mp3");
@@ -934,6 +951,7 @@ export function useDialer() {
     isPreparingVoicemail,
     voicemailError,
     isCallActive,
+    callDurationSeconds,
     callPhase,
     callStatus,
     remoteParty,

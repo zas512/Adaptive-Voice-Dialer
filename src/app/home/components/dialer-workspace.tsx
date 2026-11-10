@@ -1,5 +1,13 @@
 "use client";
-import { AlertCircle, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
+import {
+  AlertCircle,
+  Mic,
+  MicOff,
+  Phone,
+  PhoneOff,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,6 +29,14 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     registrationFailed,
     websocketConnected,
     isIncomingCall,
+    isCallActive,
+    callDurationSeconds,
+    callStatus,
+    isMuted,
+    handleToggleMute,
+    handleToggleAudio,
+    audioPlaybackBlocked,
+    handleEnableAudio,
     callPhase,
     remoteParty,
     hasCallInProgress,
@@ -88,6 +104,81 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
         audio after the call is answered. The raw audio sample is not saved in
         call logs.
       </p>
+      {isCallActive && (
+        <Card className="border-success/30">
+          <CardContent className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+            <div className="min-w-0 space-y-1">
+              <div className="flex items-center gap-2 text-sm font-medium text-success">
+                <span className="size-2 rounded-full bg-success" />
+                Live call
+              </div>
+              <h2 className="truncate text-lg font-semibold">
+                {remoteParty || "Unknown caller"}
+              </h2>
+              <p className="text-sm text-muted-foreground">{callStatus}</p>
+              <p
+                className="font-mono text-2xl font-semibold tabular-nums"
+                role="timer"
+                aria-label={`Call duration ${Math.floor(callDurationSeconds / 60)} minutes ${callDurationSeconds % 60} seconds`}
+              >
+                {Math.floor(callDurationSeconds / 3600)
+                  .toString()
+                  .padStart(2, "0")}
+                :
+                {Math.floor((callDurationSeconds % 3600) / 60)
+                  .toString()
+                  .padStart(2, "0")}
+                :{(callDurationSeconds % 60).toString().padStart(2, "0")}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleToggleMute}
+                aria-pressed={isMuted}
+                aria-label={isMuted ? "Unmute microphone" : "Mute microphone"}
+              >
+                {isMuted ? (
+                  <MicOff className="size-4" aria-hidden="true" />
+                ) : (
+                  <Mic className="size-4" aria-hidden="true" />
+                )}
+                {isMuted ? "Unmute" : "Mute"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleToggleAudio}
+                aria-pressed={isAudioOn}
+                aria-label={isAudioOn ? "Turn speaker off" : "Turn speaker on"}
+              >
+                {isAudioOn ? (
+                  <Volume2 className="size-4" aria-hidden="true" />
+                ) : (
+                  <VolumeX className="size-4" aria-hidden="true" />
+                )}
+                Speaker {isAudioOn ? "on" : "off"}
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleCall}
+                aria-label="End call"
+              >
+                <PhoneOff className="size-4" aria-hidden="true" />
+                End call
+              </Button>
+            </div>
+            {audioPlaybackBlocked && (
+              <Button type="button" variant="outline" onClick={handleEnableAudio}>
+                <Volume2 className="size-4" aria-hidden="true" />
+                Enable call audio
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      )}
       <Card className="overflow-hidden">
         <CardContent className="grid gap-6 px-5 py-6 sm:px-7 sm:py-7 xl:grid-cols-[minmax(0,1.15fr)_minmax(17rem,0.85fr)]">
           <div className="space-y-5">
