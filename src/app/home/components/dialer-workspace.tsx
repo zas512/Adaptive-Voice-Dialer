@@ -1,9 +1,9 @@
 "use client";
+import { AlertCircle, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import type { StatusRowProps } from "@/types/app";
-import { AlertCircle, Phone, PhoneOff, Volume2, VolumeX } from "lucide-react";
 import type { useDialer } from "../hooks/use-dialer";
 
 type DialerController = ReturnType<typeof useDialer>;
@@ -14,6 +14,8 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     incomingRingtoneBlocked,
     handleEnableIncomingRingtone,
     incomingAnswerRef,
+    isPreparingVoicemail,
+    voicemailError,
     isAudioOn,
     isRegistered,
     registrationFailed,
@@ -23,6 +25,7 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
     remoteParty,
     hasCallInProgress,
     handleCall,
+    handleAnswerWithVoicemail,
     handleDecline,
     phoneNumber,
     setPhoneNumber,
@@ -331,6 +334,7 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                 onClick={handleCall}
                 variant="success"
                 className="h-12 rounded-full"
+                disabled={isPreparingVoicemail}
               >
                 <Phone className="size-4" aria-hidden="true" />
                 Answer call
@@ -367,24 +371,34 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                 {[
                   {
                     label: "Voicemail",
-                    description: "Send the caller to voicemail",
+                    description: "Play the greeting, then end the call",
+                    available: true,
                   },
                   {
                     label: "AI voice",
                     description: "Answer with an AI voice",
+                    available: false,
                   },
                   {
                     label: "Answering machine",
                     description: "Play an answering-machine message",
+                    available: false,
                   },
                 ].map((option) => (
                   <Button
                     key={option.label}
                     type="button"
                     variant="outline"
-                    disabled
-                    className="h-auto min-h-14 justify-between rounded-xl px-4 py-2 text-left opacity-70"
-                    aria-label={`${option.label}, coming soon`}
+                    onClick={
+                      option.available ? handleAnswerWithVoicemail : undefined
+                    }
+                    disabled={!option.available || isPreparingVoicemail}
+                    className={`h-auto min-h-14 justify-between rounded-xl px-4 py-2 text-left ${option.available ? "" : "opacity-70"}`}
+                    aria-label={
+                      option.available
+                        ? "Answer and play the voicemail greeting"
+                        : `${option.label}, coming soon`
+                    }
                   >
                     <span>
                       <span className="block">{option.label}</span>
@@ -392,15 +406,26 @@ export function DialerWorkspace(props: Readonly<DialerController>) {
                         {option.description}
                       </span>
                     </span>
-                    <span className="shrink-0 rounded-full bg-secondary px-2 py-1 text-[0.65rem] font-semibold text-secondary-foreground">
-                      Soon
+                    <span
+                      className={`shrink-0 rounded-full px-2 py-1 text-[0.65rem] font-semibold ${option.available ? "bg-success/10 text-success" : "bg-secondary text-secondary-foreground"}`}
+                    >
+                      {option.available
+                        ? isPreparingVoicemail
+                          ? "Loading…"
+                          : "Ready"
+                        : "Soon"}
                     </span>
                   </Button>
                 ))}
               </div>
+              {voicemailError && (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {voicemailError}
+                </p>
+              )}
               <p className="mt-3 text-xs leading-5 text-muted-foreground">
-                These response options are not available yet. Answer and Reject
-                control the live call.
+                The voicemail greeting plays from public/voicemail.wav. The call
+                ends when playback finishes; caller messages are not recorded.
               </p>
             </div>
           </div>

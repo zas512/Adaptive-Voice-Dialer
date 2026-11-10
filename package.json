@@ -43,6 +43,7 @@
     "typescript": "^7"
   },
   "allowScripts": {
-    "sharp@0.32.6": true
+    "sharp@0.32.6": true,
+    "esbuild@0.28.2": true
   }
 }

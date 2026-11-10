@@ -23,6 +23,8 @@ const CLASSIFICATION_SCHEMA = {
   properties: {
     classification: {
       type: "string",
+      description:
+        "Type of party answering the call: an automated assistant, a human, or voicemail",
       enum: ["ai", "human", "voicemail"],
     },
     confidence: {
@@ -32,18 +34,18 @@ const CLASSIFICATION_SCHEMA = {
     reasoning: {
       type: "string",
       description:
-        "Short explanation based only on patterns in the transcription",
+        "Short explanation citing transcript evidence for the answering-party type",
     },
   },
   required: ["classification", "confidence", "reasoning"],
   additionalProperties: false,
 };
 
-const CLASSIFICATION_SYSTEM_PROMPT = `Classify only the style and purpose evident in the transcription. Categories:
-- "ai": synthetic text, highly promotional scripts, perfectly structured lists, or rigid introductory/educational narration. A human voice reading a prepared marketing script is still "ai" for this text-based classification.
-- "human": spontaneous personal conversation, colloquial fillers, back-and-forth, or self-corrections actually present in the transcription.
-- "voicemail": answering-machine messages, missed-call notifications, or requests to leave a message.
-Never invent fillers, hesitation, or self-correction that are not present in the transcription. Example: "Welcome to our free online resource. In this recording, we will walk you through every aspect of the platform and explain the formats we offer." => "ai", because it is polished promotional/educational narration.
+const CLASSIFICATION_SYSTEM_PROMPT = `Classify the party answering the call from the transcription, not the caller's intent or what they are discussing. Categories:
+- "ai": an automated phone system, virtual assistant, or AI agent, supported by explicit self-identification or clear automated prompts/menu instructions. Do not label speech as "ai" merely because it is polished, scripted, or mentions AI.
+- "human": a person speaking as the call's answerer, supported by the words in the transcription.
+- "voicemail": an answering-machine or voicemail greeting, especially one asking the caller to leave a message.
+Do not treat someone "chatting with AI" or talking about AI as evidence that the answering party is AI. Use only evidence present in the transcription; do not invent vocal qualities or context. If the short transcription is ambiguous, choose the best-supported category with low confidence and explain the uncertainty.
 Return one category, confidence from 0 to 1, and short evidence-based reasoning.`;
 
 function createTranscriber() {
@@ -81,7 +83,7 @@ async function classifyTranscription(transcription: string) {
         { role: "system", content: CLASSIFICATION_SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Classify this speech transcription:\n"""${transcription}"""`,
+          content: `Classify the answering party in this call transcription:\n"""${transcription}"""`,
         },
       ],
       response_format: {

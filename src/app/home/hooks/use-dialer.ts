@@ -18,6 +18,16 @@ const ACTIVE_CALL_PHASES: CallPhase[] = [
   "ending",
 ];
 
+type VoicemailPlayback = {
+  session: RTCSession;
+  audioContext: AudioContext;
+  source: AudioBufferSourceNode;
+  stream: MediaStream;
+  started: boolean;
+  finished: boolean;
+  hangupTimer: number | null;
+};
+
 function getDefaultSipConfig(user: {
   extensionId?: string;
   host?: string;
@@ -100,12 +110,16 @@ export function useDialer() {
   const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
   const incomingRingtoneRef = useRef<HTMLAudioElement | null>(null);
   const sipManagerRef = useRef<SipSessionManager | null>(null);
+  const voicemailPlaybackRef = useRef<VoicemailPlayback | null>(null);
+  const voicemailPreparationSessionRef = useRef<RTCSession | null>(null);
   const incomingAnswerRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
   const isSipConfigReady = Boolean(user?.id && configuredUserId === user.id);
   const isIncomingCall = callPhase === "incoming";
   const isCallActive = callPhase === "active";
   const hasCallInProgress = ACTIVE_CALL_PHASES.includes(callPhase);
+  const [isPreparingVoicemail, setIsPreparingVoicemail] = useState(false);
+  const [voicemailError, setVoicemailError] = useState<string | null>(null);
 
   const statusLabel = {
     idle: "Idle",
@@ -264,10 +278,151 @@ export function useDialer() {
     }
   };
 
+  const stopVoicemailPlayback = (session?: RTCSession) => {
+    const playback = voicemailPlaybackRef.current;
+    if (!playback || (session && playback.session !== session)) return;
+
+    voicemailPlaybackRef.current = null;
+    if (playback.hangupTimer !== null) {
+      window.clearTimeout(playback.hangupTimer);
+    }
+    playback.source.onended = null;
+    if (playback.started && !playback.finished) {
+      playback.source.stop();
+    }
+    playback.stream.getTracks().forEach((track) => {
+      track.stop();
+    });
+    if (playback.audioContext.state !== "closed") {
+      void playback.audioContext.close().catch((error: unknown) => {
+        console.warn("[voicemail] Could not close audio context.", error);
+      });
+    }
+  };
+
+  const handleAnswerWithVoicemail = async () => {
+    const incomingCall = currentCallRef.current;
+    if (!incomingCall || !isIncomingCall || isPreparingVoicemail) return;
+
+    voicemailPreparationSessionRef.current = incomingCall;
+    setIsPreparingVoicemail(true);
+    setVoicemailError(null);
+    setCallStatus("Preparing voicemail greeting…");
+
+    let audioContext: AudioContext | null = null;
+    try {
+      audioContext = new AudioContext();
+      await audioContext.resume();
+
+      const response = await fetch("/voicemail.wav");
+      if (!response.ok) {
+        throw new Error(
+          `Voicemail audio request failed with status ${response.status}`,
+        );
+      }
+      const audioBuffer = await audioContext.decodeAudioData(
+        await response.arrayBuffer(),
+      );
+
+      if (
+        voicemailPreparationSessionRef.current !== incomingCall ||
+        currentCallRef.current !== incomingCall ||
+        incomingCall.isEnded()
+      ) {
+        await audioContext.close();
+        return;
+      }
+
+      const source = audioContext.createBufferSource();
+      const destination = audioContext.createMediaStreamDestination();
+      source.buffer = audioBuffer;
+      source.connect(destination);
+
+      const playback: VoicemailPlayback = {
+        session: incomingCall,
+        audioContext,
+        source,
+        stream: destination.stream,
+        started: false,
+        finished: false,
+        hangupTimer: null,
+      };
+      voicemailPlaybackRef.current = playback;
+
+      source.onended = () => {
+        playback.finished = true;
+        if (currentCallRef.current !== incomingCall) return;
+        setCallPhase("ending");
+        setCallStatus("Voicemail greeting finished. Ending call…");
+        playback.hangupTimer = window.setTimeout(() => {
+          if (
+            currentCallRef.current === incomingCall &&
+            !incomingCall.isEnded()
+          ) {
+            incomingCall.terminate();
+          }
+        }, 500);
+      };
+
+      incomingCall.on("confirmed", () => {
+        if (
+          currentCallRef.current !== incomingCall ||
+          voicemailPlaybackRef.current !== playback
+        ) {
+          return;
+        }
+        try {
+          source.start();
+          playback.started = true;
+          setCallStatus("Playing voicemail greeting to caller…");
+        } catch (error: unknown) {
+          console.error("[voicemail] Could not play the greeting.", error);
+          setCallPhase("ending");
+          setCallStatus("Could not play voicemail greeting. Ending call…");
+          incomingCall.terminate();
+        }
+      });
+      incomingCall.on("ended", () => stopVoicemailPlayback(incomingCall));
+      incomingCall.on("failed", () => stopVoicemailPlayback(incomingCall));
+
+      incomingCall.answer({
+        mediaStream: destination.stream,
+        mediaConstraints: { video: false },
+      });
+      setCallPhase("answering");
+      setCallStatus("Answering with voicemail…");
+    } catch (error: unknown) {
+      console.error("[voicemail] Could not prepare the greeting.", error);
+      stopVoicemailPlayback(incomingCall);
+      if (audioContext && audioContext.state !== "closed") {
+        void audioContext.close().catch((closeError: unknown) => {
+          console.warn(
+            "[voicemail] Could not close audio context.",
+            closeError,
+          );
+        });
+      }
+      if (currentCallRef.current === incomingCall && !incomingCall.isEnded()) {
+        setCallStatus(
+          "Could not load voicemail.wav. Check the audio file and retry.",
+        );
+        setVoicemailError(
+          "Could not load voicemail.wav. Check the audio file and retry.",
+        );
+      }
+    } finally {
+      if (voicemailPreparationSessionRef.current === incomingCall) {
+        voicemailPreparationSessionRef.current = null;
+      }
+      setIsPreparingVoicemail(false);
+    }
+  };
+
   const handleDecline = () => {
     const incomingCall = currentCallRef.current;
     if (!incomingCall || !isIncomingCall) return;
 
+    voicemailPreparationSessionRef.current = null;
     setCallPhase("ending");
     setCallStatus("Declining incoming call…");
     incomingCall.terminate({
@@ -776,12 +931,15 @@ export function useDialer() {
     registrationFailed,
     websocketConnected,
     isIncomingCall,
+    isPreparingVoicemail,
+    voicemailError,
     isCallActive,
     callPhase,
     callStatus,
     remoteParty,
     hasCallInProgress,
     handleCall,
+    handleAnswerWithVoicemail,
     handleDecline,
     audioPlaybackBlocked,
     handleEnableAudio,

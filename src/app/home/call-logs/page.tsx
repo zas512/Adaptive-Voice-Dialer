@@ -100,7 +100,7 @@ export default function CallLogsPage() {
                 <TableHead>Type</TableHead>
                 <TableHead>Duration</TableHead>
                 <TableHead>Call State</TableHead>
-                <TableHead>AI inference</TableHead>
+                <TableHead>Answering party</TableHead>
                 <TableHead>AMD Status</TableHead>
                 <TableHead>AMD Cause</TableHead>
                 <TableHead>Cancel Reason</TableHead>
@@ -158,12 +158,13 @@ export default function CallLogsPage() {
                       {log.aiInference ? (
                         <div className="space-y-1">
                           <p className="font-medium capitalize">
-                            {log.aiInference.classification.classification}
-                            {" · "}
-                            {Math.round(
-                              log.aiInference.classification.confidence * 100,
-                            )}
-                            %
+                            {log.aiInference.classification.classification ===
+                            "ai"
+                              ? "AI / automated"
+                              : log.aiInference.classification
+                                    .classification === "human"
+                                ? "Human"
+                                : "Voicemail"}
                           </p>
                           <p
                             className="line-clamp-2 text-xs text-muted-foreground"
